@@ -19,13 +19,17 @@ const Hero = () => {
         </p>
 
         <div className="flex flex-col sm:flex-row justify-center gap-4">
-          <Link to={isAuthenticated ? "/appointment" : "/register"}>
+          <Link to={!isAuthenticated ? "/register" :
+                    user?.role === 'doctor' ? "/doctor/schedule" :
+                    "/appointment"}>
             <Button
               variant="primary"
               size="large"
               className="w-full sm:w-auto"
             >
-              Solicitar Consulta
+              {!isAuthenticated ? "Solicitar Consulta" :
+               user?.role === 'doctor' ? "Ver Mi Calendario" :
+               "Solicitar Consulta"}
             </Button>
           </Link>
 

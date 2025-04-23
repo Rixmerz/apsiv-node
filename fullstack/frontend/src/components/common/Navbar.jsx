@@ -42,9 +42,17 @@ const Navbar = () => {
 
             {isAuthenticated ? (
               <>
-                <Link to="/appointment" className="text-lg font-medium hover:text-primary transition-colors">
-                  Agendar Hora
-                </Link>
+                {user?.role === 'patient' && (
+                  <Link to="/appointment" className="text-lg font-medium hover:text-primary transition-colors">
+                    Agendar Hora
+                  </Link>
+                )}
+
+                {user?.role === 'doctor' && (
+                  <Link to="/doctor/schedule" className="text-lg font-medium hover:text-primary transition-colors">
+                    Mi Calendario
+                  </Link>
+                )}
 
                 {user?.role === 'admin' && (
                   <>
@@ -125,13 +133,25 @@ const Navbar = () => {
 
             {isAuthenticated ? (
               <>
-                <Link
-                  to="/appointment"
-                  className="block text-xl font-medium hover:text-primary transition-colors py-2"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Agendar Hora
-                </Link>
+                {user?.role === 'patient' && (
+                  <Link
+                    to="/appointment"
+                    className="block text-xl font-medium hover:text-primary transition-colors py-2"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Agendar Hora
+                  </Link>
+                )}
+
+                {user?.role === 'doctor' && (
+                  <Link
+                    to="/doctor/schedule"
+                    className="block text-xl font-medium hover:text-primary transition-colors py-2"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Mi Calendario
+                  </Link>
+                )}
 
                 {user?.role === 'admin' && (
                   <>
