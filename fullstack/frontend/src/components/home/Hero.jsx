@@ -3,7 +3,7 @@ import Button from '../common/Button';
 import { useAuth } from '../../hooks/useAuth';
 
 const Hero = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
 
   return (
     <section
