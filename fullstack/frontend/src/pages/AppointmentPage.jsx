@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { format } from 'date-fns';
+import { format, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import Navbar from '../components/common/Navbar';
 import Footer from '../components/common/Footer';
@@ -216,7 +216,7 @@ const AppointmentPage = () => {
       const appointmentData = {
         date: formatDateForApi(selectedDate),
         timeSlot: selectedSlot,
-        patientId: user.id,
+        patientId: user?.patientProfile?.id || user?.id,
         reason: formData.reason,
         notes: formData.notes
       };
@@ -412,7 +412,7 @@ const AppointmentPage = () => {
                   </Button>
                 </div>
               </div>
-            )
+            )}
 
             {/* Step 3: Time Slot Selection */}
             {step === 3 && (
@@ -498,13 +498,20 @@ const AppointmentPage = () => {
 
                     <div>
                       <p className="font-semibold">Paciente:</p>
-                      <p>{user.nombre} {user.apellido}</p>
+                      <p>{user?.name || 'No disponible'}</p>
                     </div>
 
                     <div>
-                      <p className="font-semibold">RUT:</p>
-                      <p>{user.rut}</p>
+                      <p className="font-semibold">Email:</p>
+                      <p>{user?.email || 'No disponible'}</p>
                     </div>
+
+                    {user?.patientProfile?.phone && (
+                      <div>
+                        <p className="font-semibold">Teléfono:</p>
+                        <p>{user.patientProfile.phone}</p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
