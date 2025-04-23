@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import ScrollLink from './ScrollLink';
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -29,15 +30,15 @@ const Navbar = () => {
             <Link to="/" className="text-lg font-bold hover:text-blue-600 transition-colors">
               Inicio
             </Link>
-            <Link to="/#about" className="text-lg font-bold hover:text-blue-600 transition-colors">
+            <ScrollLink to="/#about" className="text-lg font-bold hover:text-blue-600 transition-colors">
               Quienes Somos
-            </Link>
-            <Link to="/#services" className="text-lg font-bold hover:text-blue-600 transition-colors">
+            </ScrollLink>
+            <ScrollLink to="/#services" className="text-lg font-bold hover:text-blue-600 transition-colors">
               Servicios
-            </Link>
-            <Link to="/#contact" className="text-lg font-bold hover:text-blue-600 transition-colors">
+            </ScrollLink>
+            <ScrollLink to="/#contact" className="text-lg font-bold hover:text-blue-600 transition-colors">
               Contáctenos
-            </Link>
+            </ScrollLink>
 
             {isAuthenticated ? (
               <>
@@ -100,27 +101,27 @@ const Navbar = () => {
             >
               Inicio
             </Link>
-            <Link
+            <ScrollLink
               to="/#about"
               className="block text-xl font-medium hover:text-primary transition-colors py-2"
               onClick={() => setIsMenuOpen(false)}
             >
               Quienes Somos
-            </Link>
-            <Link
+            </ScrollLink>
+            <ScrollLink
               to="/#services"
               className="block text-xl font-medium hover:text-primary transition-colors py-2"
               onClick={() => setIsMenuOpen(false)}
             >
               Servicios
-            </Link>
-            <Link
+            </ScrollLink>
+            <ScrollLink
               to="/#contact"
               className="block text-xl font-medium hover:text-primary transition-colors py-2"
               onClick={() => setIsMenuOpen(false)}
             >
               Contáctenos
-            </Link>
+            </ScrollLink>
 
             {isAuthenticated ? (
               <>
