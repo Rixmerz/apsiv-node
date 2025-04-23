@@ -380,19 +380,21 @@ const RegisterPage = () => {
                   </div>
 
                   <div>
-                    <label htmlFor="birthDate" className="label text-xl">  {/* Texto más grande */}
+                    {/* Texto más grande */}
+                    <label htmlFor="birthDate" className="label text-xl">
                       Fecha de Nacimiento
                     </label>
+                    {/* Más grande y con padding */}
                     <input
                       type="date"
                       id="birthDate"
                       name="birthDate"
-                      className={`input-field text-xl p-5 h-16 ${errors.birthDate ? 'border-red-500' : ''}`}  {/* Más grande y con padding */}
+                      className={`input-field text-xl p-5 h-16 ${errors.birthDate ? 'border-red-500' : ''}`}
                       value={formData.birthDate}
                       onChange={handleChange}
                       max={new Date().toISOString().split('T')[0]}
-                      min="1900-01-01"  {/* Año mínimo: 1900 */}
-                      style={{ fontSize: '1.25rem' }}  {/* Asegurar texto grande */}
+                      min="1900-01-01"
+                      style={{ fontSize: '1.25rem' }}
                     />
                     <p className="text-gray-600 mt-1 text-sm">Seleccione su fecha de nacimiento (desde 1900)</p>
                     {errors.birthDate && (
