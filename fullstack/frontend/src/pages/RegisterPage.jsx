@@ -22,7 +22,7 @@ const RegisterPage = () => {
   const [errors, setErrors] = useState({});
   const [toast, setToast] = useState(null);
 
-  const { register, loading } = useAuth();
+  const { register, loading, error } = useAuth();
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -186,8 +186,13 @@ const RegisterPage = () => {
           navigate('/login');
         }, 2000);
       } else {
+        // Verificar si el error es específico sobre email duplicado
+        const errorMessage = error && error.includes('email already exists')
+          ? 'Este email ya está registrado. Por favor utilice otro email.'
+          : 'Hubo un problema al registrarse. Intente nuevamente.';
+
         setToast({
-          message: 'Hubo un problema al registrarse. Intente nuevamente.',
+          message: errorMessage,
           type: 'error'
         });
       }

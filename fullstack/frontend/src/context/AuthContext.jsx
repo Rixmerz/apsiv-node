@@ -115,7 +115,8 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (err) {
       console.error('Register error:', err);
-      setError(err.response?.data?.error || 'Error al registrarse');
+      const errorMessage = err.response?.data?.error || 'Error al registrarse';
+      setError(errorMessage);
       setLoading(false);
       return false;
     }
