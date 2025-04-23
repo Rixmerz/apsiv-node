@@ -1,0 +1,88 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Montserrat', sans-serif;
+  }
+  
+  body {
+    @apply bg-light-dark text-dark;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-bold;
+  }
+  
+  h1 {
+    @apply text-3xl md:text-4xl lg:text-xxxl;
+  }
+  
+  h2 {
+    @apply text-2xl md:text-3xl;
+  }
+  
+  h3 {
+    @apply text-xl md:text-2xl;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-block px-6 py-3 rounded-xl font-medium transition-all duration-200 text-center;
+  }
+  
+  .btn-lg {
+    @apply px-8 py-4 text-xl rounded-2xl;
+  }
+  
+  .btn-primary {
+    @apply bg-primary text-white hover:bg-primary-dark shadow-button;
+  }
+  
+  .btn-secondary {
+    @apply bg-secondary text-white hover:bg-secondary-dark shadow-button;
+  }
+  
+  .btn-outline {
+    @apply border-2 border-primary text-primary hover:bg-primary hover:text-white;
+  }
+  
+  .input-field {
+    @apply w-full p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-lg;
+  }
+  
+  .label {
+    @apply block mb-2 text-lg font-medium;
+  }
+  
+  .card {
+    @apply bg-white p-6 rounded-xl shadow-card;
+  }
+  
+  .container-custom {
+    @apply container mx-auto px-4 md:px-6;
+  }
+  
+  .section {
+    @apply py-16;
+  }
+}
+
+/* Accesibilidad para adultos mayores */
+@layer utilities {
+  .text-high-contrast {
+    @apply text-dark font-medium;
+  }
+  
+  .focus-visible {
+    @apply focus:ring-4 focus:ring-primary focus:ring-opacity-50 outline-none;
+  }
+  
+  .touch-target {
+    @apply min-h-[44px] min-w-[44px]; /* Mínimo recomendado para áreas táctiles */
+  }
+}
