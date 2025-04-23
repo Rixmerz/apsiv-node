@@ -74,9 +74,24 @@ The server will run on http://localhost:3001
 
 ### Authentication
 
-- `POST /api/users/register` - Register a new user
+- `POST /api/users/register` - Register a new user (always as patient)
 - `POST /api/users/login` - Login user
 - `GET /api/users/profile` - Get user profile (requires authentication)
+
+### Appointments
+
+- `GET /api/appointments` - Get all appointments (admin only)
+- `GET /api/appointments/doctor/:doctorId` - Get doctor appointments
+- `GET /api/appointments/patient/:patientId` - Get patient appointments
+- `POST /api/appointments` - Create new appointment
+- `PUT /api/appointments/:id` - Update appointment
+- `DELETE /api/appointments/:id` - Delete appointment
+
+### Admin
+
+- `GET /api/admin/users` - Get all users (admin only)
+- `PUT /api/admin/users/:userId/role` - Update user role (admin only)
+- `DELETE /api/admin/users/:userId` - Delete user (admin only)
 
 ### Example Endpoints
 
@@ -86,9 +101,27 @@ The server will run on http://localhost:3001
 - `PUT /api/example/:id` - Update item (requires authentication)
 - `DELETE /api/example/:id` - Delete item (requires authentication)
 
-## Admin User
+## User Roles
 
-An admin user is automatically created with the following credentials:
+The application has three user roles:
 
+1. **Admin**: Can manage all users, appointments, and system settings
+2. **Doctor**: Can view and manage their appointments and patient information
+3. **Patient**: Can book appointments with doctors and manage their own profile
+
+### Default Users
+
+**Admin User**:
 - Email: admin@apsiv.com
 - Password: 123456
+
+**Test Doctor**:
+- Email: doctor@example.com
+- Password: 123456
+
+### Role Management
+
+- New users can only register as patients
+- Only admin users can change user roles
+- A user can only have one role at a time (admin, doctor, or patient)
+- When changing a user's role, their previous role-specific profile is deleted

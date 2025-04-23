@@ -15,18 +15,19 @@ const RegisterPage = () => {
     telefono: '',
     password: '',
     confirmPassword: '',
-    isapre: ''
+    isapre: '',
+    birthDate: ''
   });
-  
+
   const [errors, setErrors] = useState({});
   const [toast, setToast] = useState(null);
-  
+
   const { register, loading } = useAuth();
   const navigate = useNavigate();
-  
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    
+
     // Special handling for RUT to format it while typing
     if (name === 'rut') {
       const formattedRut = formatRut(value);
@@ -34,7 +35,7 @@ const RegisterPage = () => {
     } else {
       setFormData({ ...formData, [name]: value });
     }
-    
+
     // Clear error when user types
     if (errors[name]) {
       setErrors({ ...errors, [name]: '' });
@@ -45,70 +46,70 @@ const RegisterPage = () => {
   const formatRut = (rut) => {
     // Remove all non-alphanumeric characters
     let value = rut.replace(/[^0-9kK]/g, '');
-    
+
     if (value.length > 1) {
       // Extract verification digit (last character)
       const dv = value.slice(-1);
       // Get the main part of the RUT
       let rutWithoutDv = value.slice(0, -1);
-      
+
       // Add dots
       const formattedRut = rutWithoutDv.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-      
+
       // Return formatted RUT with dash and verification digit
       return `${formattedRut}-${dv}`;
     }
-    
+
     return value;
   };
-  
+
   // Validate Chilean RUT
   const validateRut = (rut) => {
     if (!rut) return false;
-    
+
     // Check format using regex
     const rutRegex = /^\d{1,2}\.\d{3}\.\d{3}-[0-9kK]$/;
     if (!rutRegex.test(rut)) {
       return false;
     }
-    
+
     // Remove dots and dash for calculation
     const cleanRut = rut.replace(/\./g, '').replace('-', '');
     const body = cleanRut.slice(0, -1);
     const dv = cleanRut.slice(-1).toUpperCase();
-    
+
     // Calculate verification digit
     let sum = 0;
     let multiplier = 2;
-    
+
     for (let i = body.length - 1; i >= 0; i--) {
       sum += parseInt(body.charAt(i)) * multiplier;
       multiplier = multiplier === 7 ? 2 : multiplier + 1;
     }
-    
+
     const expectedDv = 11 - (sum % 11);
     const calculatedDv = expectedDv === 11 ? '0' : expectedDv === 10 ? 'K' : expectedDv.toString();
-    
+
     return calculatedDv === dv;
   };
-  
+
   const validateForm = () => {
     const newErrors = {};
-    
+
     if (!formData.nombre.trim()) {
       newErrors.nombre = 'El nombre es requerido';
     }
-    
+
     if (!formData.apellido.trim()) {
       newErrors.apellido = 'El apellido es requerido';
     }
-    
+
     if (!formData.rut.trim()) {
       newErrors.rut = 'El RUT es requerido';
     } else if (!validateRut(formData.rut)) {
       newErrors.rut = 'El RUT ingresado no es válido';
     }
-    
+
     if (!formData.email.trim()) {
       newErrors.email = 'El email es requerido';
     } else {
@@ -117,7 +118,7 @@ const RegisterPage = () => {
         newErrors.email = 'Ingrese un email válido';
       }
     }
-    
+
     if (!formData.telefono.trim()) {
       newErrors.telefono = 'El teléfono es requerido';
     } else {
@@ -126,43 +127,60 @@ const RegisterPage = () => {
         newErrors.telefono = 'Ingrese un número de teléfono válido (9 dígitos)';
       }
     }
-    
+
     if (!formData.password.trim()) {
       newErrors.password = 'La contraseña es requerida';
     } else if (formData.password.length < 6) {
       newErrors.password = 'La contraseña debe tener al menos 6 caracteres';
     }
-    
+
     if (!formData.confirmPassword.trim()) {
       newErrors.confirmPassword = 'Confirme su contraseña';
     } else if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = 'Las contraseñas no coinciden';
     }
-    
+
     if (!formData.isapre.trim()) {
       newErrors.isapre = 'Seleccione su ISAPRE o sistema de salud';
     }
-    
+
+    if (!formData.birthDate.trim()) {
+      newErrors.birthDate = 'La fecha de nacimiento es requerida';
+    } else {
+      const birthDate = new Date(formData.birthDate);
+      const today = new Date();
+      const minDate = new Date();
+      minDate.setFullYear(today.getFullYear() - 120); // Máximo 120 años
+
+      if (isNaN(birthDate.getTime())) {
+        newErrors.birthDate = 'Ingrese una fecha válida';
+      } else if (birthDate > today) {
+        newErrors.birthDate = 'La fecha no puede ser futura';
+      } else if (birthDate < minDate) {
+        newErrors.birthDate = 'La fecha no puede ser mayor a 120 años';
+      }
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-  
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
-    
+
     try {
       const success = await register(formData);
-      
+
       if (success) {
         setToast({
           message: '¡Registro exitoso! Ahora puede iniciar sesión.',
           type: 'success'
         });
-        
+
         // Redirect to login page after a short delay
         setTimeout(() => {
           navigate('/login');
@@ -198,21 +216,21 @@ const RegisterPage = () => {
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
-      
+
       <main className="flex-grow py-16 bg-gradient-to-br from-primary to-secondary">
         <div className="container-custom">
           <div className="flex justify-center">
             <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-2xl">
               <div className="flex justify-center mb-6">
-                <img 
-                  src="/imagenes/zyro-image-logo.png" 
-                  alt="APSIV Logo" 
+                <img
+                  src="/imagenes/zyro-image-logo.png"
+                  alt="APSIV Logo"
                   className="h-16"
                 />
               </div>
-              
+
               <h1 className="text-3xl font-bold text-center mb-8">Registro de Paciente</h1>
-              
+
               <form onSubmit={handleSubmit}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
@@ -232,7 +250,7 @@ const RegisterPage = () => {
                       <p className="text-red-500 mt-1">{errors.nombre}</p>
                     )}
                   </div>
-                  
+
                   <div>
                     <label htmlFor="apellido" className="label">
                       Apellido
@@ -250,7 +268,7 @@ const RegisterPage = () => {
                       <p className="text-red-500 mt-1">{errors.apellido}</p>
                     )}
                   </div>
-                  
+
                   <div>
                     <label htmlFor="rut" className="label">
                       RUT
@@ -269,7 +287,7 @@ const RegisterPage = () => {
                       <p className="text-red-500 mt-1">{errors.rut}</p>
                     )}
                   </div>
-                  
+
                   <div>
                     <label htmlFor="email" className="label">
                       Email
@@ -287,7 +305,7 @@ const RegisterPage = () => {
                       <p className="text-red-500 mt-1">{errors.email}</p>
                     )}
                   </div>
-                  
+
                   <div>
                     <label htmlFor="telefono" className="label">
                       Teléfono
@@ -305,7 +323,7 @@ const RegisterPage = () => {
                       <p className="text-red-500 mt-1">{errors.telefono}</p>
                     )}
                   </div>
-                  
+
                   <div>
                     <label htmlFor="isapre" className="label">
                       ISAPRE o Sistema de Salud
@@ -327,7 +345,25 @@ const RegisterPage = () => {
                       <p className="text-red-500 mt-1">{errors.isapre}</p>
                     )}
                   </div>
-                  
+
+                  <div>
+                    <label htmlFor="birthDate" className="label">
+                      Fecha de Nacimiento
+                    </label>
+                    <input
+                      type="date"
+                      id="birthDate"
+                      name="birthDate"
+                      className={`input-field ${errors.birthDate ? 'border-red-500' : ''}`}
+                      value={formData.birthDate}
+                      onChange={handleChange}
+                      max={new Date().toISOString().split('T')[0]}
+                    />
+                    {errors.birthDate && (
+                      <p className="text-red-500 mt-1">{errors.birthDate}</p>
+                    )}
+                  </div>
+
                   <div>
                     <label htmlFor="password" className="label">
                       Contraseña
@@ -345,7 +381,7 @@ const RegisterPage = () => {
                       <p className="text-red-500 mt-1">{errors.password}</p>
                     )}
                   </div>
-                  
+
                   <div>
                     <label htmlFor="confirmPassword" className="label">
                       Confirmar Contraseña
@@ -364,7 +400,7 @@ const RegisterPage = () => {
                     )}
                   </div>
                 </div>
-                
+
                 <div className="mt-8">
                   <Button
                     type="submit"
@@ -377,7 +413,7 @@ const RegisterPage = () => {
                   </Button>
                 </div>
               </form>
-              
+
               <p className="text-center mt-6 text-lg">
                 ¿Ya tiene una cuenta?{' '}
                 <Link to="/login" className="text-primary font-medium hover:underline">
@@ -388,9 +424,9 @@ const RegisterPage = () => {
           </div>
         </div>
       </main>
-      
+
       <Footer />
-      
+
       {/* Toast notification */}
       {toast && (
         <Toast

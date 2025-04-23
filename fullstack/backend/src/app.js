@@ -7,11 +7,12 @@ require('dotenv').config();
 const exampleRoutes = require('./routes/exampleRoutes');
 const userRoutes = require('./routes/userRoutes');
 const appointmentRoutes = require('./routes/appointmentRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 // Initialize Express app
 const app = express();
 const prisma = new PrismaClient();
-const PORT = process.env.PORT || 3003;
+const PORT = process.env.PORT || 3005;
 
 // Middleware
 app.use(cors({
@@ -26,6 +27,7 @@ app.use(express.json());
 app.use('/api/example', exampleRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/appointments', appointmentRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Default route
 app.get('/', (req, res) => {

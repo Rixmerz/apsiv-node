@@ -13,7 +13,10 @@ const prisma = new PrismaClient();
  */
 const registerUser = async (userData) => {
   try {
-    const { email, password, name, role = 'patient', patientData, doctorData } = userData;
+    // Force role to be 'patient' for regular registration
+    // Only admin can create doctors or other admins
+    const { email, password, name, patientData } = userData;
+    const role = 'patient'; // Default and only allowed role for self-registration
 
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
@@ -27,27 +30,19 @@ const registerUser = async (userData) => {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create user with appropriate profile based on role
+    // Create user with patient profile
     const user = await prisma.user.create({
       data: {
         email,
         password: hashedPassword,
         name,
         role,
-        ...(role === 'doctor' && {
-          doctorProfile: {
-            create: doctorData || {}
-          }
-        }),
-        ...(role === 'patient' && {
-          patientProfile: {
-            create: patientData || {}
-          }
-        })
+        patientProfile: {
+          create: patientData || {}
+        }
       },
       include: {
-        doctorProfile: role === 'doctor',
-        patientProfile: role === 'patient'
+        patientProfile: true
       }
     });
 

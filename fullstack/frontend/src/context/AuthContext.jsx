@@ -97,7 +97,8 @@ export const AuthProvider = ({ children }) => {
         role: 'patient',
         patientData: {
           phone: userData.telefono,
-          address: userData.direccion || ''
+          address: userData.direccion || '',
+          birthDate: userData.birthDate ? new Date(userData.birthDate).toISOString() : null
         }
       };
 
