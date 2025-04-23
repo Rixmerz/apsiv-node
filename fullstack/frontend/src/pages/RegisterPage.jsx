@@ -1,12 +1,22 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import Navbar from '../components/common/Navbar';
 import Footer from '../components/common/Footer';
 import Button from '../components/common/Button';
 import Toast from '../components/common/Toast';
+import '../styles/dateInput.css'; // Importar estilos personalizados para el input de fecha
 
 const RegisterPage = () => {
+  // Función para establecer una fecha predeterminada para personas mayores (65 años)
+  const getDefaultBirthDate = () => {
+    const today = new Date();
+    const year = today.getFullYear() - 65; // Edad predeterminada para geriatría
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const [formData, setFormData] = useState({
     nombre: '',
     apellido: '',
@@ -16,7 +26,7 @@ const RegisterPage = () => {
     password: '',
     confirmPassword: '',
     isapre: '',
-    birthDate: ''
+    birthDate: getDefaultBirthDate() // Fecha predeterminada para personas mayores
   });
 
   const [errors, setErrors] = useState({});
@@ -24,6 +34,24 @@ const RegisterPage = () => {
 
   const { register, loading, error } = useAuth();
   const navigate = useNavigate();
+
+  // Efecto para ajustar el tamaño del calendario en dispositivos móviles
+  useEffect(() => {
+    const dateInput = document.getElementById('birthDate');
+    if (dateInput) {
+      // Agregar clase para mejorar la visualización en móviles
+      dateInput.addEventListener('touchstart', function() {
+        this.blur();
+        setTimeout(() => this.focus(), 100);
+      });
+    }
+
+    return () => {
+      if (dateInput) {
+        dateInput.removeEventListener('touchstart', function() {});
+      }
+    };
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -352,18 +380,21 @@ const RegisterPage = () => {
                   </div>
 
                   <div>
-                    <label htmlFor="birthDate" className="label">
+                    <label htmlFor="birthDate" className="label text-xl">  {/* Texto más grande */}
                       Fecha de Nacimiento
                     </label>
                     <input
                       type="date"
                       id="birthDate"
                       name="birthDate"
-                      className={`input-field ${errors.birthDate ? 'border-red-500' : ''}`}
+                      className={`input-field text-xl p-5 h-16 ${errors.birthDate ? 'border-red-500' : ''}`}  {/* Más grande y con padding */}
                       value={formData.birthDate}
                       onChange={handleChange}
                       max={new Date().toISOString().split('T')[0]}
+                      min="1900-01-01"  {/* Año mínimo: 1900 */}
+                      style={{ fontSize: '1.25rem' }}  {/* Asegurar texto grande */}
                     />
+                    <p className="text-gray-600 mt-1 text-sm">Seleccione su fecha de nacimiento (desde 1900)</p>
                     {errors.birthDate && (
                       <p className="text-red-500 mt-1">{errors.birthDate}</p>
                     )}

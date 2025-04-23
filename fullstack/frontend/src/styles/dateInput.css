@@ -1,0 +1,48 @@
+/* Estilos personalizados para el input de fecha */
+
+/* Aumentar el tamaño del calendario emergente */
+::-webkit-calendar-picker-indicator {
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  opacity: 0.8;
+  padding: 4px;
+}
+
+/* Estilos para Firefox */
+input[type="date"] {
+  position: relative;
+  padding-right: 40px; /* Espacio para el icono */
+}
+
+/* Aumentar el tamaño del texto en el calendario */
+input[type="date"]::-webkit-datetime-edit {
+  font-size: 1.25rem;
+  padding: 0.5rem;
+}
+
+input[type="date"]::-webkit-datetime-edit-fields-wrapper {
+  padding: 0.25rem;
+}
+
+input[type="date"]::-webkit-datetime-edit-text,
+input[type="date"]::-webkit-datetime-edit-month-field,
+input[type="date"]::-webkit-datetime-edit-day-field,
+input[type="date"]::-webkit-datetime-edit-year-field {
+  padding: 0.25rem;
+  font-size: 1.25rem;
+}
+
+/* Mejorar la visibilidad del calendario */
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+}
+
+/* Estilos para el calendario en Firefox */
+@-moz-document url-prefix() {
+  input[type="date"] {
+    font-size: 1.25rem;
+    padding: 0.75rem;
+  }
+}
