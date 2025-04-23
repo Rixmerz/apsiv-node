@@ -1,0 +1,65 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Define your models here
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  name      String?
+  role      String   @default("patient") // "admin", "doctor", or "patient"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  doctorProfile Doctor?
+  patientProfile Patient?
+}
+
+model Doctor {
+  id        Int      @id @default(autoincrement())
+  specialty String?
+  bio       String?
+  userId    Int      @unique
+  user      User     @relation(fields: [userId], references: [id])
+
+  // Relations
+  appointments Appointment[]
+}
+
+model Patient {
+  id        Int      @id @default(autoincrement())
+  birthDate DateTime?
+  address   String?
+  phone     String?
+  userId    Int      @unique
+  user      User     @relation(fields: [userId], references: [id])
+
+  // Relations
+  appointments Appointment[]
+}
+
+model Appointment {
+  id          Int      @id @default(autoincrement())
+  date        DateTime
+  status      String   @default("scheduled") // "scheduled", "completed", "cancelled"
+  notes       String?
+  doctorId    Int
+  patientId   Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  doctor      Doctor   @relation(fields: [doctorId], references: [id])
+  patient     Patient  @relation(fields: [patientId], references: [id])
+}

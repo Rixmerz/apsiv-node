@@ -1,0 +1,30 @@
+{
+  "name": "apsiv-fullstack",
+  "version": "1.0.0",
+  "description": "Apsiv Fullstack Application",
+  "main": "index.js",
+  "scripts": {
+    "start": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "start:frontend": "cd frontend && npm run preview",
+    "start:backend": "cd backend && npm run start",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && npm run dev",
+    "build": "concurrently \"cd frontend && npm run build\" \"cd backend && npm run prisma:generate\"",
+    "install:all": "npm install && concurrently \"cd frontend && npm install\" \"cd backend && npm install\"",
+    "setup:db": "cd backend && node setup-mysql.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "apsiv",
+    "fullstack",
+    "react",
+    "express",
+    "mysql"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
