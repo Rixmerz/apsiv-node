@@ -89,6 +89,15 @@ export const AuthProvider = ({ children }) => {
       setError(null);
       setLoading(true);
 
+      // Calcular fecha de nacimiento aproximada basada en la edad
+      const calculateBirthDateFromAge = (age) => {
+        if (!age) return null;
+        const today = new Date();
+        const year = today.getFullYear() - parseInt(age);
+        // Usamos 01/01 como fecha por defecto
+        return new Date(`${year}-01-01`).toISOString();
+      };
+
       // Preparar los datos para el formato que espera el backend
       const registerData = {
         email: userData.email,
@@ -98,7 +107,7 @@ export const AuthProvider = ({ children }) => {
         patientData: {
           phone: userData.telefono,
           address: userData.direccion || '',
-          birthDate: userData.birthDate ? new Date(userData.birthDate).toISOString() : null
+          birthDate: calculateBirthDateFromAge(userData.edad)
         }
       };
 

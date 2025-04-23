@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import Navbar from '../components/common/Navbar';
@@ -8,14 +8,7 @@ import Toast from '../components/common/Toast';
 import '../styles/dateInput.css'; // Importar estilos personalizados para el input de fecha
 
 const RegisterPage = () => {
-  // Función para establecer una fecha predeterminada para personas mayores (65 años)
-  const getDefaultBirthDate = () => {
-    const today = new Date();
-    const year = today.getFullYear() - 65; // Edad predeterminada para geriatría
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
+  // Usamos un campo de edad en lugar de fecha de nacimiento para mayor facilidad
 
   const [formData, setFormData] = useState({
     nombre: '',
@@ -26,7 +19,7 @@ const RegisterPage = () => {
     password: '',
     confirmPassword: '',
     isapre: '',
-    birthDate: getDefaultBirthDate() // Fecha predeterminada para personas mayores
+    edad: '65', // Edad predeterminada para geriatría (mayores de 60 años)
   });
 
   const [errors, setErrors] = useState({});
@@ -35,23 +28,7 @@ const RegisterPage = () => {
   const { register, loading, error } = useAuth();
   const navigate = useNavigate();
 
-  // Efecto para ajustar el tamaño del calendario en dispositivos móviles
-  useEffect(() => {
-    const dateInput = document.getElementById('birthDate');
-    if (dateInput) {
-      // Agregar clase para mejorar la visualización en móviles
-      dateInput.addEventListener('touchstart', function() {
-        this.blur();
-        setTimeout(() => this.focus(), 100);
-      });
-    }
-
-    return () => {
-      if (dateInput) {
-        dateInput.removeEventListener('touchstart', function() {});
-      }
-    };
-  }, []);
+  // No necesitamos efectos especiales para el campo de edad
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -172,20 +149,17 @@ const RegisterPage = () => {
       newErrors.isapre = 'Seleccione su ISAPRE o sistema de salud';
     }
 
-    if (!formData.birthDate.trim()) {
-      newErrors.birthDate = 'La fecha de nacimiento es requerida';
+    if (!formData.edad.trim()) {
+      newErrors.edad = 'La edad es requerida';
     } else {
-      const birthDate = new Date(formData.birthDate);
-      const today = new Date();
-      const minDate = new Date();
-      minDate.setFullYear(today.getFullYear() - 120); // Máximo 120 años
+      const edad = parseInt(formData.edad);
 
-      if (isNaN(birthDate.getTime())) {
-        newErrors.birthDate = 'Ingrese una fecha válida';
-      } else if (birthDate > today) {
-        newErrors.birthDate = 'La fecha no puede ser futura';
-      } else if (birthDate < minDate) {
-        newErrors.birthDate = 'La fecha no puede ser mayor a 120 años';
+      if (isNaN(edad)) {
+        newErrors.edad = 'Ingrese un número válido';
+      } else if (edad < 60) {
+        newErrors.edad = 'La edad debe ser mayor o igual a 60 años (geriatría)';
+      } else if (edad > 120) {
+        newErrors.edad = 'La edad no puede ser mayor a 120 años';
       }
     }
 
@@ -380,25 +354,24 @@ const RegisterPage = () => {
                   </div>
 
                   <div>
-                    {/* Texto más grande */}
-                    <label htmlFor="birthDate" className="label text-xl">
-                      Fecha de Nacimiento
+                    <label htmlFor="edad" className="label text-xl">
+                      Edad
                     </label>
-                    {/* Más grande y con padding */}
                     <input
-                      type="date"
-                      id="birthDate"
-                      name="birthDate"
-                      className={`input-field text-xl p-5 h-16 ${errors.birthDate ? 'border-red-500' : ''}`}
-                      value={formData.birthDate}
+                      type="number"
+                      id="edad"
+                      name="edad"
+                      className={`input-field text-xl p-5 h-16 ${errors.edad ? 'border-red-500' : ''}`}
+                      value={formData.edad}
                       onChange={handleChange}
-                      max={new Date().toISOString().split('T')[0]}
-                      min="1900-01-01"
+                      min="60"
+                      max="120"
+                      placeholder="Ej: 65"
                       style={{ fontSize: '1.25rem' }}
                     />
-                    <p className="text-gray-600 mt-1 text-sm">Seleccione su fecha de nacimiento (desde 1900)</p>
-                    {errors.birthDate && (
-                      <p className="text-red-500 mt-1">{errors.birthDate}</p>
+                    <p className="text-gray-600 mt-1 text-sm">Ingrese su edad actual (mínimo 60 años para geriatría)</p>
+                    {errors.edad && (
+                      <p className="text-red-500 mt-1">{errors.edad}</p>
                     )}
                   </div>
 
