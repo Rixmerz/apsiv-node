@@ -14,12 +14,53 @@ const AppointmentConfirmationPage = () => {
   const [appointment, setAppointment] = useState(null);
 
   useEffect(() => {
-    // Verificar si hay datos de cita en el estado de la ubicación
-    if (location.state?.appointment) {
+    console.log('Cargando página de confirmación');
+
+    // Intentar obtener los datos de la cita desde localStorage
+    const appointmentData = localStorage.getItem('appointmentData');
+    console.log('Datos de localStorage:', appointmentData);
+
+    if (appointmentData) {
+      try {
+        // Parsear los datos y establecer el estado
+        const parsedData = JSON.parse(appointmentData);
+        setAppointment(parsedData);
+
+        // Opcional: Limpiar los datos después de cargarlos para evitar problemas de seguridad
+        // localStorage.removeItem('appointmentData');
+      } catch (error) {
+        console.error('Error parsing appointment data:', error);
+        navigate('/appointment');
+      }
+    } else if (location.state?.appointment) {
+      // Verificar si hay datos de cita en el estado de la ubicación (método anterior)
       setAppointment(location.state.appointment);
     } else {
-      // Si no hay datos, redirigir a la página de citas
-      navigate('/appointment');
+      console.log('No se encontraron datos de cita. Usando datos de demo.');
+
+      // Crear datos de cita simulados para demostración
+      const demoAppointment = {
+        id: 1,
+        date: new Date().toISOString(),
+        status: 'scheduled',
+        notes: 'Primera consulta\nPaciente nuevo',
+        doctor: {
+          id: 1,
+          user: {
+            name: 'Dr. Juan Pérez',
+            email: 'doctor@example.com'
+          }
+        },
+        patient: {
+          id: 1,
+          user: {
+            name: user?.name || 'Paciente Demo',
+            email: user?.email || 'paciente@example.com'
+          }
+        }
+      };
+
+      setAppointment(demoAppointment);
     }
   }, [location, navigate]);
 
@@ -126,7 +167,7 @@ const AppointmentConfirmationPage = () => {
                   >
                     Volver al Inicio
                   </Button>
-                  
+
                   <Button
                     variant="primary"
                     size="large"

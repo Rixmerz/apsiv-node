@@ -272,13 +272,12 @@ const AppointmentPage = () => {
           notes: ''
         });
 
+        // Guardar los datos de la cita en localStorage para que estén disponibles en la página de confirmación
+        localStorage.setItem('appointmentData', JSON.stringify(response.data.appointment));
+
         // Navigate to confirmation page after delay
         setTimeout(() => {
-          navigate('/appointment/confirmation', {
-            state: {
-              appointment: response.data.appointment
-            }
-          });
+          navigate('/appointment/confirmation');
         }, 1500);
       }
     } catch (error) {
