@@ -46,16 +46,16 @@ const AppointmentPage = () => {
 
   const availableMonths = getAvailableMonths();
 
-  // Time slots with their labels
+  // Time slots with their labels - Usando formato frontend (slot_X)
   const timeSlots = [
-    { id: 'Bloque_1', time: '09:00 - 10:00' },
-    { id: 'Bloque_2', time: '10:00 - 11:00' },
-    { id: 'Bloque_3', time: '11:00 - 12:00' },
-    { id: 'Bloque_4', time: '12:00 - 13:00' },
-    { id: 'Bloque_5', time: '14:00 - 15:00' },
-    { id: 'Bloque_6', time: '15:00 - 16:00' },
-    { id: 'Bloque_7', time: '16:00 - 17:00' },
-    { id: 'Bloque_8', time: '17:00 - 18:00' }
+    { id: 'slot_1', time: '09:00 - 10:00' },
+    { id: 'slot_2', time: '10:00 - 11:00' },
+    { id: 'slot_3', time: '11:00 - 12:00' },
+    { id: 'slot_4', time: '12:00 - 13:00' },
+    { id: 'slot_5', time: '14:00 - 15:00' },
+    { id: 'slot_6', time: '15:00 - 16:00' },
+    { id: 'slot_7', time: '16:00 - 17:00' },
+    { id: 'slot_8', time: '17:00 - 18:00' }
   ];
 
   // Available dates for the selected month (excluding weekends and past dates)
