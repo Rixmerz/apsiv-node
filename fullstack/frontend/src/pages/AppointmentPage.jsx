@@ -144,8 +144,14 @@ const AppointmentPage = () => {
   }, []);
 
   const handleDateSelect = (date) => {
-    console.log('Fecha seleccionada:', date);
-    setSelectedDate(date);
+    console.log('Fecha seleccionada original:', date);
+
+    // Normalizar la fecha para que siempre tenga hora 00:00:00
+    // Esto evita problemas con la zona horaria y la hora actual
+    const normalizedDate = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
+
+    console.log('Fecha seleccionada normalizada:', normalizedDate);
+    setSelectedDate(normalizedDate);
     setSelectedSlot(null);
     // La carga de horarios disponibles se maneja en el useEffect cuando se cambia a step 3
   };
@@ -422,7 +428,7 @@ const AppointmentPage = () => {
             setLoading(false);
             console.log('Estado de carga completado');
           }
-        }, 500); // Esperar al menos 500ms para mostrar el resultado
+        }, 300); // Esperar al menos 300ms para mostrar el resultado
       }
     }
   };
@@ -466,13 +472,13 @@ const AppointmentPage = () => {
             })));
 
             setToast({
-              message: 'No se pudieron cargar los horarios. Por favor, intente nuevamente o seleccione otra fecha.',
-              type: 'error',
+              message: 'No hay horarios disponibles para esta fecha. Por favor, seleccione otra fecha.',
+              type: 'warning',
               duration: 5000
             });
           }
         }
-      }, 5000); // 5 segundos máximo de espera
+      }, 2000); // 2 segundos máximo de espera
 
       // Limpiar los timers si el efecto se ejecuta nuevamente
       return () => {
