@@ -373,7 +373,15 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
       hasAvailableSlots: hasAvailableSlots
     };
   } catch (error) {
-    throw new Error(`Error getting available slots: ${error.message}`);
+    console.error(`[Backend] Error in getAvailableSlotsForDate: ${error.message}`);
+    // Siempre retornar un objeto consistente incluso en caso de error
+    return {
+      date: dateStr,
+      slots: {},
+      doctorAvailableSlots: {},
+      hasAvailableSlots: false,
+      error: error.message
+    };
   }
 };
 

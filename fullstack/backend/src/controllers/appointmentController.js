@@ -75,15 +75,51 @@ const getAvailableSlotsForDate = async (req, res) => {
     const { doctorId, date } = req.params;
 
     if (!doctorId || !date) {
-      return res.status(400).json({ error: 'Doctor ID and date are required' });
+      console.error('[Backend] Missing parameters in getAvailableSlotsForDate:', { doctorId, date });
+      return res.status(400).json({
+        error: 'Doctor ID and date are required',
+        slots: {},
+        doctorAvailableSlots: {},
+        hasAvailableSlots: false
+      });
     }
 
-    console.log(`Getting available slots for doctor ${doctorId} on date ${date}`);
-    const availableSlots = await appointmentService.getAvailableSlotsForDate(doctorId, date);
-    res.status(200).json(availableSlots);
+    console.log(`[Backend] Getting available slots for doctor ${doctorId} on date ${date}`);
+
+    try {
+      const availableSlots = await appointmentService.getAvailableSlotsForDate(doctorId, date);
+
+      // Verificar si hay un error en la respuesta
+      if (availableSlots.error) {
+        console.warn(`[Backend] Service returned error: ${availableSlots.error}`);
+        // Devolvemos código 200 con los datos de error para que el frontend pueda manejarlos
+        return res.status(200).json(availableSlots);
+      }
+
+      console.log(`[Backend] Successfully retrieved slots for doctor ${doctorId} on date ${date}`);
+      return res.status(200).json(availableSlots);
+    } catch (serviceError) {
+      // Este bloque no debería ejecutarse ya que el servicio ahora maneja sus propios errores
+      // Pero lo mantenemos como medida de seguridad adicional
+      console.error('[Backend] Unexpected error in service:', serviceError);
+      return res.status(200).json({
+        date,
+        slots: {},
+        doctorAvailableSlots: {},
+        hasAvailableSlots: false,
+        error: serviceError.message
+      });
+    }
   } catch (error) {
-    console.error('Error getting available slots:', error);
-    res.status(500).json({ error: error.message });
+    console.error('[Backend] Error in getAvailableSlotsForDate controller:', error);
+    // Siempre devolver una estructura consistente incluso en caso de error
+    return res.status(200).json({
+      date: req.params.date || 'unknown',
+      slots: {},
+      doctorAvailableSlots: {},
+      hasAvailableSlots: false,
+      error: 'Error interno del servidor al obtener horarios disponibles'
+    });
   }
 };
 
