@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import axios from 'axios';
+import api from '../api/axios';
 import { format, startOfWeek, addDays, isSameDay, addWeeks, subWeeks } from 'date-fns';
 import { es } from 'date-fns/locale';
 import Navbar from '../components/common/Navbar';
@@ -22,28 +22,64 @@ const DoctorScheduleManagementPage = () => {
   // Estado para controlar si los datos se han cargado inicialmente
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
 
+  // Estado para controlar si se deben actualizar los datos
+  const [shouldUpdateData, setShouldUpdateData] = useState(false);
+
   // Horarios posibles (8:00 AM a 6:00 PM)
-  const timeSlots = Array.from({ length: 11 }, (_, i) => {
-    const hour = i + 8;
-    return {
-      id: `slot_${hour}`,
-      time: `${hour}:00 - ${hour + 1}:00`
-    };
-  });
+  // Usamos useMemo para evitar recalcular en cada renderizado
+  const timeSlots = useMemo(() => {
+    return Array.from({ length: 11 }, (_, i) => {
+      const hour = i + 8;
+      return {
+        id: `slot_${hour}`,
+        time: `${hour}:00 - ${hour + 1}:00`
+      };
+    });
+  }, []);
+
+  // Función para convertir IDs de slots a un formato consistente
+  const normalizeSlotId = (slotId) => {
+    // Asegurarse de que el ID del slot tenga el formato correcto (slot_X)
+    if (!slotId) return null;
+
+    // Si ya tiene el formato correcto, devolverlo tal cual
+    if (slotId.startsWith('slot_')) return slotId;
+
+    // Si es Bloque_X, convertirlo a slot_X
+    if (slotId.startsWith('Bloque_')) {
+      const number = slotId.replace('Bloque_', '');
+      return `slot_${number}`;
+    }
+
+    // Si es un número, convertirlo a slot_X
+    if (!isNaN(slotId)) {
+      return `slot_${slotId}`;
+    }
+
+    // Si no se puede convertir, devolver el original
+    return slotId;
+  };
 
   // Generar los días de la semana actual
-  const weekDays = Array.from({ length: 7 }, (_, i) => {
-    const day = addDays(currentWeek, i);
-    return {
-      date: day,
-      dayName: format(day, 'EEEE', { locale: es }),
-      dayNumber: format(day, 'd', { locale: es }),
-      month: format(day, 'MMMM', { locale: es })
-    };
-  });
+  // Usamos useMemo para evitar recalcular en cada renderizado
+  const weekDays = useMemo(() => {
+    return Array.from({ length: 7 }, (_, i) => {
+      const day = addDays(currentWeek, i);
+      return {
+        date: day,
+        dayName: format(day, 'EEEE', { locale: es }),
+        dayNumber: format(day, 'd', { locale: es }),
+        month: format(day, 'MMMM', { locale: es })
+      };
+    });
+  }, [currentWeek]);
 
   // Cargar los horarios disponibles del doctor
   useEffect(() => {
+    // Accedemos a timeSlots y weekDays dentro del efecto para evitar dependencias cíclicas
+    const currentTimeSlots = timeSlots;
+    const currentWeekDays = weekDays;
+
     const fetchAvailableSlots = async () => {
       if (!user || !user.doctorProfile) {
         setToast({
@@ -56,22 +92,59 @@ const DoctorScheduleManagementPage = () => {
 
       try {
         setLoading(true);
+        console.log('Obteniendo horarios del doctor...');
 
-        // En un entorno real, aquí se haría una llamada a la API
-        // para obtener los horarios disponibles del doctor
+        // Intentar obtener los horarios del doctor desde el backend
+        try {
+          const doctorId = user.doctorProfile.id;
+          console.log('Llamando a la API para obtener horarios del doctor:', doctorId);
+
+          const response = await api.get(`/api/doctor/schedule/${doctorId}`);
+          console.log('Respuesta del servidor:', response.data);
+
+          if (response.data && Object.keys(response.data).length > 0) {
+            console.log('Horarios obtenidos del servidor');
+            setAvailableSlots(response.data);
+            setInitialDataLoaded(true);
+            setLoading(false);
+            return;
+          } else {
+            console.log('No se encontraron horarios en el servidor, generando datos iniciales');
+          }
+        } catch (apiError) {
+          console.error('Error al obtener horarios del servidor:', apiError);
+          console.log('Usando datos locales o generando nuevos');
+        }
+
+        // Si no se pudieron obtener datos del servidor, intentar cargar desde localStorage
+        const savedSchedule = localStorage.getItem('doctorSchedule');
 
         // Para demo, generamos datos aleatorios solo si no se han cargado antes
         if (!initialDataLoaded) {
           console.log('Inicializando datos de disponibilidad');
-          const slots = {};
+          let slots = {};
 
-          weekDays.forEach(day => {
+          // Si hay datos guardados, los usamos
+          if (savedSchedule) {
+            try {
+              console.log('Cargando horarios guardados previamente de localStorage');
+              slots = JSON.parse(savedSchedule);
+            } catch (parseError) {
+              console.error('Error al parsear horarios guardados:', parseError);
+              // Si hay error al parsear, creamos nuevos datos
+              slots = {};
+            }
+          }
+
+          currentWeekDays.forEach(day => {
             const dateStr = format(day.date, 'yyyy-MM-dd');
             slots[dateStr] = {};
 
-            timeSlots.forEach(slot => {
+            currentTimeSlots.forEach(slot => {
+              // Normalizar el ID del slot para asegurar consistencia
+              const normalizedSlotId = normalizeSlotId(slot.id);
               // 70% de probabilidad de que el horario esté disponible
-              slots[dateStr][slot.id] = Math.random() > 0.3;
+              slots[dateStr][normalizedSlotId] = Math.random() > 0.3;
             });
           });
 
@@ -80,24 +153,32 @@ const DoctorScheduleManagementPage = () => {
         } else {
           // Si ya se cargaron los datos, solo agregamos las fechas nuevas que no existan
           console.log('Actualizando datos de disponibilidad para nuevas fechas');
-          setAvailableSlots(prevSlots => {
-            const newSlots = { ...prevSlots };
 
-            weekDays.forEach(day => {
-              const dateStr = format(day.date, 'yyyy-MM-dd');
+          // Crear una copia del estado actual
+          const newSlots = { ...availableSlots };
+          let hasChanges = false;
 
-              if (!newSlots[dateStr]) {
-                newSlots[dateStr] = {};
+          // Verificar si hay fechas nuevas que agregar
+          currentWeekDays.forEach(day => {
+            const dateStr = format(day.date, 'yyyy-MM-dd');
 
-                timeSlots.forEach(slot => {
-                  // 70% de probabilidad de que el horario esté disponible
-                  newSlots[dateStr][slot.id] = Math.random() > 0.3;
-                });
-              }
-            });
+            if (!newSlots[dateStr]) {
+              hasChanges = true;
+              newSlots[dateStr] = {};
 
-            return newSlots;
+              currentTimeSlots.forEach(slot => {
+                // Normalizar el ID del slot para asegurar consistencia
+                const normalizedSlotId = normalizeSlotId(slot.id);
+                // 70% de probabilidad de que el horario esté disponible
+                newSlots[dateStr][normalizedSlotId] = Math.random() > 0.3;
+              });
+            }
           });
+
+          // Solo actualizar el estado si hay cambios
+          if (hasChanges) {
+            setAvailableSlots(newSlots);
+          }
         }
       } catch (error) {
         console.error('Error fetching available slots:', error);
@@ -111,27 +192,36 @@ const DoctorScheduleManagementPage = () => {
     };
 
     fetchAvailableSlots();
-  }, [user, currentWeek, timeSlots, weekDays, initialDataLoaded]);
+  }, [user, currentWeek, initialDataLoaded, shouldUpdateData]);
 
   // Navegar a la semana anterior
   const goToPreviousWeek = () => {
     setCurrentWeek(prevWeek => subWeeks(prevWeek, 1));
+    // Indicar que se deben actualizar los datos
+    setShouldUpdateData(prev => !prev);
   };
 
   // Navegar a la semana siguiente
   const goToNextWeek = () => {
     setCurrentWeek(prevWeek => addWeeks(prevWeek, 1));
+    // Indicar que se deben actualizar los datos
+    setShouldUpdateData(prev => !prev);
   };
 
   // Navegar a la semana actual
   const goToCurrentWeek = () => {
     setCurrentWeek(startOfWeek(new Date(), { weekStartsOn: 1 }));
+    // Indicar que se deben actualizar los datos
+    setShouldUpdateData(prev => !prev);
   };
 
   // Cambiar la disponibilidad de un horario
   const toggleSlotAvailability = (dateStr, slotId) => {
-    console.log(`Cambiando disponibilidad para ${dateStr}, slot ${slotId}`);
-    console.log('Estado actual:', availableSlots[dateStr]?.[slotId]);
+    // Normalizar el ID del slot para asegurar consistencia
+    const normalizedSlotId = normalizeSlotId(slotId);
+
+    console.log(`Cambiando disponibilidad para ${dateStr}, slot ${normalizedSlotId}`);
+    console.log('Estado actual:', availableSlots[dateStr]?.[normalizedSlotId]);
 
     setAvailableSlots(prevSlots => {
       // Crear una copia profunda del objeto para asegurar que React detecte el cambio
@@ -142,9 +232,9 @@ const DoctorScheduleManagementPage = () => {
       }
 
       // Invertir el valor actual
-      newSlots[dateStr][slotId] = !newSlots[dateStr][slotId];
+      newSlots[dateStr][normalizedSlotId] = !newSlots[dateStr][normalizedSlotId];
 
-      console.log('Nuevo estado:', newSlots[dateStr][slotId]);
+      console.log('Nuevo estado:', newSlots[dateStr][normalizedSlotId]);
       return newSlots;
     });
   };
@@ -153,17 +243,38 @@ const DoctorScheduleManagementPage = () => {
   const saveChanges = async () => {
     try {
       setLoading(true);
+      console.log('Guardando horarios disponibles:', availableSlots);
 
-      // En un entorno real, aquí se haría una llamada a la API
-      // para guardar los horarios disponibles del doctor
+      if (!user || !user.doctorProfile) {
+        throw new Error('No se encontró el perfil de doctor');
+      }
 
-      // Simulamos una llamada exitosa
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const doctorId = user.doctorProfile.id;
 
-      setToast({
-        message: 'Horarios guardados con éxito',
-        type: 'success'
-      });
+      try {
+        // Intentar hacer la llamada a la API real
+        console.log(`Enviando datos al servidor: /api/doctor/schedule/${doctorId}`);
+        const response = await api.post(`/api/doctor/schedule/${doctorId}`, { availableSlots });
+        console.log('Respuesta del servidor:', response.data);
+
+        // Guardar también en localStorage como respaldo
+        localStorage.setItem('doctorSchedule', JSON.stringify(availableSlots));
+
+        setToast({
+          message: 'Horarios guardados con éxito en el servidor',
+          type: 'success'
+        });
+      } catch (apiError) {
+        console.error('Error en la llamada a la API:', apiError);
+
+        // Guardar en localStorage para persistencia local
+        localStorage.setItem('doctorSchedule', JSON.stringify(availableSlots));
+
+        setToast({
+          message: 'No se pudo guardar en el servidor. Horarios guardados localmente.',
+          type: 'warning'
+        });
+      }
     } catch (error) {
       console.error('Error saving available slots:', error);
       setToast({
@@ -249,7 +360,9 @@ const DoctorScheduleManagementPage = () => {
                           </td>
                           {weekDays.map((day, dayIndex) => {
                             const dateStr = format(day.date, 'yyyy-MM-dd');
-                            const isAvailable = availableSlots[dateStr]?.[slot.id];
+                            // Normalizar el ID del slot para asegurar consistencia
+                            const normalizedSlotId = normalizeSlotId(slot.id);
+                            const isAvailable = availableSlots[dateStr]?.[normalizedSlotId];
 
                             return (
                               <td
@@ -259,7 +372,7 @@ const DoctorScheduleManagementPage = () => {
                                 }`}
                               >
                                 <button
-                                  onClick={() => toggleSlotAvailability(dateStr, slot.id)}
+                                  onClick={() => toggleSlotAvailability(dateStr, normalizedSlotId)}
                                   className={`w-full h-full p-2 text-center rounded transition-colors ${
                                     isAvailable
                                       ? 'bg-green-100 hover:bg-green-200 text-green-800'

@@ -8,6 +8,7 @@ const exampleRoutes = require('./routes/exampleRoutes');
 const userRoutes = require('./routes/userRoutes');
 const appointmentRoutes = require('./routes/appointmentRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const doctorRoutes = require('./routes/doctorRoutes');
 
 // Initialize Express app
 const app = express();
@@ -28,6 +29,7 @@ app.use('/api/example', exampleRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/doctor', doctorRoutes);
 
 // Default route
 app.get('/', (req, res) => {

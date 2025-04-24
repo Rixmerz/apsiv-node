@@ -20,12 +20,13 @@ model User {
 }
 
 model Doctor {
-  id           Int           @id @default(autoincrement())
+  id           Int              @id @default(autoincrement())
   specialty    String?
   bio          String?
-  userId       Int           @unique
+  userId       Int              @unique
   appointments Appointment[]
-  user         User          @relation(fields: [userId], references: [id])
+  schedule     DoctorSchedule[]
+  user         User             @relation(fields: [userId], references: [id])
 }
 
 model Patient {
@@ -49,4 +50,17 @@ model Appointment {
   updatedAt DateTime @updatedAt
   patient   Patient  @relation(fields: [patientId], references: [id])
   doctor    Doctor   @relation(fields: [doctorId], references: [id])
+}
+
+model DoctorSchedule {
+  id        Int      @id @default(autoincrement())
+  date      DateTime
+  slotId    String
+  available Boolean  @default(true)
+  doctorId  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  doctor    Doctor   @relation(fields: [doctorId], references: [id])
+
+  @@unique([doctorId, date, slotId])
 }

@@ -104,6 +104,29 @@ const AppointmentPage = () => {
     return format(date, 'yyyy-MM-dd');
   };
 
+  // Función para convertir IDs de slots a un formato consistente
+  const normalizeSlotId = (slotId) => {
+    // Asegurarse de que el ID del slot tenga el formato correcto (slot_X)
+    if (!slotId) return null;
+
+    // Si ya tiene el formato correcto, devolverlo tal cual
+    if (slotId.startsWith('slot_')) return slotId;
+
+    // Si es Bloque_X, convertirlo a slot_X
+    if (slotId.startsWith('Bloque_')) {
+      const number = slotId.replace('Bloque_', '');
+      return `slot_${number}`;
+    }
+
+    // Si es un número, convertirlo a slot_X
+    if (!isNaN(slotId)) {
+      return `slot_${slotId}`;
+    }
+
+    // Si no se puede convertir, devolver el original
+    return slotId;
+  };
+
   // Handle month selection
   const handleMonthSelect = (month, year) => {
     setSelectedMonth(month);
@@ -120,42 +143,11 @@ const AppointmentPage = () => {
     setSelectedYear(today.getFullYear());
   }, []);
 
-  const handleDateSelect = async (date) => {
+  const handleDateSelect = (date) => {
+    console.log('Fecha seleccionada:', date);
     setSelectedDate(date);
     setSelectedSlot(null);
-    setLoading(true);
-
-    try {
-      // Call API to get available slots for the selected date
-      const response = await api.get(`/api/appointments/available-slots?date=${formatDateForApi(date)}`);
-
-      if (response.data && response.data.availableSlots) {
-        setAvailableSlots(response.data.availableSlots);
-      } else {
-        // For demo purposes, generate mock data
-        const mockAvailableSlots = timeSlots.map(slot => ({
-          ...slot,
-          available: Math.random() > 0.3 // 70% chance of being available
-        }));
-        setAvailableSlots(mockAvailableSlots);
-      }
-    } catch (error) {
-      console.error('Error fetching available slots:', error);
-      // For demo purposes, generate mock data even on error
-      const mockAvailableSlots = timeSlots.map(slot => ({
-        ...slot,
-        available: Math.random() > 0.3 // 70% chance of being available
-      }));
-      setAvailableSlots(mockAvailableSlots);
-
-      setToast({
-        message: 'Usando datos de demostración para horarios disponibles.',
-        type: 'info'
-      });
-    } finally {
-      setLoading(false);
-      // No avanzamos automáticamente para que el usuario pueda revisar su selección
-    }
+    // La carga de horarios disponibles se maneja en el useEffect cuando se cambia a step 3
   };
 
   const handleSlotSelect = (slotId) => {
@@ -168,6 +160,8 @@ const AppointmentPage = () => {
   };
 
   const nextStep = () => {
+    console.log('Avanzando al siguiente paso. Paso actual:', step);
+
     if (step === 1 && !selectedMonth) {
       setToast({
         message: 'Por favor, seleccione un mes para continuar.',
@@ -192,7 +186,9 @@ const AppointmentPage = () => {
       return;
     }
 
-    setStep(step + 1);
+    const newStep = step + 1;
+    console.log('Avanzando al paso:', newStep);
+    setStep(newStep);
   };
 
   const prevStep = () => {
@@ -272,13 +268,24 @@ const AppointmentPage = () => {
           notes: ''
         });
 
-        // Guardar los datos de la cita en localStorage para que estén disponibles en la página de confirmación
-        localStorage.setItem('appointmentData', JSON.stringify(response.data.appointment));
+        // Crear un objeto con los datos de la cita para pasar a la página de confirmación
+        const appointmentDetails = {
+          date: appointmentDateTime,
+          timeSlot: timeSlots.find(slot => slot.id === selectedSlot)?.time,
+          doctorName: 'Dr. Juan Pérez',
+          patientName: user?.name,
+          patientEmail: user?.email,
+          reason: formData.reason,
+          notes: formData.notes
+        };
+
+        // Guardar los datos en sessionStorage (se borrarán al cerrar la pestaña)
+        sessionStorage.setItem('appointmentDetails', JSON.stringify(appointmentDetails));
 
         // Navigate to confirmation page after delay
         setTimeout(() => {
           navigate('/appointment/confirmation');
-        }, 1500);
+        }, 1000);
       }
     } catch (error) {
       console.error('Error booking appointment:', error);
@@ -296,21 +303,159 @@ const AppointmentPage = () => {
     }
   };
 
-  // For demo purposes, simulate API data for available slots
+  // Obtener las horas disponibles para la fecha seleccionada
   useEffect(() => {
+    console.log('useEffect para cargar horas disponibles. Fecha:', selectedDate, 'Paso:', step);
+
     if (selectedDate && step === 3) {
-      // Simulate API call
-      setTimeout(() => {
-        // Randomly make some slots unavailable for demo
-        const mockAvailableSlots = timeSlots.map(slot => ({
+      console.log('Cargando horas disponibles para la fecha:', selectedDate);
+      setLoading(true);
+
+      // Asegurarse de que availableSlots se inicialice correctamente si está vacío
+      if (availableSlots.length === 0) {
+        console.log('availableSlots está vacío, inicializando con valores por defecto');
+        const defaultSlots = timeSlots.map(slot => ({
           ...slot,
-          available: Math.random() > 0.3 // 70% chance of being available
+          available: true
         }));
-        setAvailableSlots(mockAvailableSlots);
-        setLoading(false);
-      }, 1000);
+        setAvailableSlots(defaultSlots);
+      }
+
+      // Formatear la fecha para la API
+      const dateStr = formatDateForApi(selectedDate);
+      console.log('Fecha formateada para API:', dateStr);
+
+      // Función para obtener los horarios disponibles
+      const fetchAvailableSlots = async () => {
+        try {
+          // Aquí usamos un ID de doctor fijo (1) para demo
+          // En un entorno real, se obtendría de la selección del usuario
+          const doctorId = 1;
+
+          console.log(`Obteniendo horarios disponibles para doctor ${doctorId} en fecha ${dateStr}`);
+
+          // Intentar obtener los horarios del doctor desde el backend
+          try {
+            const response = await api.get(`/api/doctor/schedule/${doctorId}`);
+            console.log('Respuesta del servidor:', response.data);
+
+            if (response.data && response.data[dateStr]) {
+              console.log('Horarios obtenidos del servidor para esta fecha');
+
+              // Obtener los slots que el doctor ha marcado como no disponibles
+              const doctorUnavailableSlots = Object.keys(response.data[dateStr])
+                .filter(slotId => !response.data[dateStr][slotId])
+                .map(slotId => normalizeSlotId(slotId)); // Normalizar los IDs
+              console.log('Slots que el doctor ha marcado como no disponibles:', doctorUnavailableSlots);
+
+              // Simular slots reservados por otros pacientes (en un entorno real, esto vendría del backend)
+              const bookedSlots = ['Bloque_3', 'Bloque_7'].map(slotId => normalizeSlotId(slotId)); // Normalizar los IDs
+              console.log('Slots reservados por otros pacientes:', bookedSlots);
+
+              // Filtrar las horas que el doctor ha marcado como no disponibles
+              const filteredSlots = timeSlots.filter(slot => {
+                const normalizedSlotId = normalizeSlotId(slot.id);
+                return !doctorUnavailableSlots.includes(normalizedSlotId);
+              });
+              console.log('Slots filtrados (después de quitar los no disponibles del doctor):', filteredSlots.map(slot => slot.id));
+
+              // Marcar las horas reservadas como no disponibles
+              const availableSlotsList = filteredSlots.map(slot => {
+                const normalizedSlotId = normalizeSlotId(slot.id);
+                return {
+                  ...slot,
+                  available: !bookedSlots.includes(normalizedSlotId)
+                };
+              });
+              console.log('Lista final de slots con disponibilidad:', availableSlotsList);
+
+              setAvailableSlots(availableSlotsList);
+            } else {
+              console.log('No se encontraron horarios en el servidor para esta fecha, usando localStorage');
+              // Intentar cargar desde localStorage
+              await loadFromLocalStorage();
+            }
+          } catch (apiError) {
+            console.error('Error al obtener horarios del servidor:', apiError);
+            console.log('Usando datos de localStorage');
+            // Intentar cargar desde localStorage
+            await loadFromLocalStorage();
+          }
+        } catch (error) {
+          console.error('Error general al cargar horarios:', error);
+          // En caso de error, mostrar todas las horas como disponibles
+          const fallbackSlots = timeSlots.map(slot => ({
+            ...slot,
+            available: true
+          }));
+          setAvailableSlots(fallbackSlots);
+
+          setToast({
+            message: 'Error al cargar horarios. Mostrando todos los horarios como disponibles.',
+            type: 'error',
+            duration: 5000
+          });
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      // Función para cargar datos desde localStorage
+      const loadFromLocalStorage = async () => {
+        try {
+          const savedSchedule = localStorage.getItem('doctorSchedule');
+          let doctorUnavailableSlots = ['Bloque_1', 'Bloque_5']; // Valores por defecto
+
+          if (savedSchedule) {
+            console.log('Cargando horarios guardados del doctor desde localStorage');
+            const doctorSchedule = JSON.parse(savedSchedule);
+
+            // Si hay datos para esta fecha, los usamos
+            if (doctorSchedule[dateStr]) {
+              // Encontrar los slots que el doctor ha marcado como no disponibles
+              doctorUnavailableSlots = Object.keys(doctorSchedule[dateStr])
+                .filter(slotId => !doctorSchedule[dateStr][slotId])
+                .map(slotId => normalizeSlotId(slotId)); // Normalizar los IDs
+              console.log('Slots no disponibles del doctor para esta fecha (localStorage):', doctorUnavailableSlots);
+            }
+          }
+
+          // Simular horas que ya han sido reservadas por otros pacientes
+          const bookedSlots = ['Bloque_3', 'Bloque_7'].map(slotId => normalizeSlotId(slotId)); // Normalizar los IDs
+
+          // Filtrar las horas que el doctor ha marcado como no disponibles
+          const filteredSlots = timeSlots.filter(slot => {
+            const normalizedSlotId = normalizeSlotId(slot.id);
+            return !doctorUnavailableSlots.includes(normalizedSlotId);
+          });
+
+          // Marcar las horas reservadas como no disponibles
+          const availableSlotsList = filteredSlots.map(slot => {
+            const normalizedSlotId = normalizeSlotId(slot.id);
+            return {
+              ...slot,
+              available: !bookedSlots.includes(normalizedSlotId)
+            };
+          });
+
+          setAvailableSlots(availableSlotsList);
+
+          // Mostrar mensaje informativo sobre datos de demostración
+          setToast({
+            message: 'Nota: Se están utilizando datos locales para los horarios disponibles.',
+            type: 'info',
+            duration: 5000
+          });
+        } catch (error) {
+          console.error('Error al cargar desde localStorage:', error);
+          throw error; // Propagar el error para que se maneje en fetchAvailableSlots
+        }
+      };
+
+      // Ejecutar la función para obtener los horarios
+      fetchAvailableSlots();
     }
-  }, [selectedDate, step]);
+  }, [selectedDate, step, timeSlots]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -457,8 +602,11 @@ const AppointmentPage = () => {
             {step === 3 && (
               <div>
                 <h2 className="text-2xl font-bold mb-2">Seleccione un Horario</h2>
-                <p className="text-gray-600 mb-6">
+                <p className="text-gray-600 mb-2">
                   Fecha seleccionada: <span className="font-semibold capitalize">{formatDate(selectedDate)}</span>
+                </p>
+                <p className="text-gray-500 text-sm mb-6">
+                  Solo se muestran los horarios que el doctor tiene disponibles. Los horarios marcados como "Reservado" ya han sido tomados por otros pacientes.
                 </p>
 
                 {loading ? (
@@ -483,7 +631,7 @@ const AppointmentPage = () => {
                         >
                           <p className="text-lg font-semibold">{slot.time}</p>
                           {!slot.available && (
-                            <p className="text-sm text-red-500 mt-1">No disponible</p>
+                            <p className="text-sm text-red-500 mt-1">Reservado</p>
                           )}
                         </button>
                       ))
@@ -629,7 +777,7 @@ const AppointmentPage = () => {
         <Toast
           message={toast.message}
           type={toast.type}
-          duration={5000}
+          duration={toast.duration || 5000}
           onClose={() => setToast(null)}
         />
       )}
