@@ -328,37 +328,56 @@ const AppointmentPage = () => {
       // Función para obtener los horarios disponibles
       const fetchAvailableSlots = async () => {
         try {
-          console.log(`Generando horarios disponibles para la fecha ${dateStr}`);
+          console.log(`Obteniendo horarios disponibles para la fecha ${dateStr}`);
 
-          // Usar datos de demostración en lugar de hacer llamadas a la API
-          // Esto evita los problemas de bucle infinito y errores de recursos insuficientes
+          // Intentar cargar los horarios guardados por el doctor desde localStorage
+          const savedSchedule = localStorage.getItem('doctorSchedule');
+          let doctorUnavailableSlots = [];
 
-          // Generar datos de demostración basados en la fecha seleccionada
-          // Usamos la fecha para generar datos consistentes pero diferentes para cada día
-          const day = selectedDate.getDate();
+          if (savedSchedule) {
+            try {
+              console.log('Cargando horarios guardados del doctor desde localStorage');
+              const doctorSchedule = JSON.parse(savedSchedule);
 
-          // Determinar qué slots no están disponibles basado en el día del mes
-          // Esto simula que el doctor ha marcado algunos slots como no disponibles
-          const unavailableSlotIndices = [];
-
-          // Usar el día para determinar qué slots no están disponibles
-          // Esto hace que diferentes días tengan diferentes patrones de disponibilidad
-          for (let i = 0; i < 5; i++) {
-            // Generar índices basados en el día del mes para que sean consistentes
-            const index = (day + i * 3) % timeSlots.length;
-            unavailableSlotIndices.push(index);
+              // Si hay datos para esta fecha, los usamos
+              if (doctorSchedule[dateStr]) {
+                // Encontrar los slots que el doctor ha marcado como no disponibles
+                doctorUnavailableSlots = Object.keys(doctorSchedule[dateStr])
+                  .filter(slotId => !doctorSchedule[dateStr][slotId])
+                  .map(slotId => normalizeSlotId(slotId)); // Normalizar los IDs
+                console.log('Slots no disponibles del doctor para esta fecha (localStorage):', doctorUnavailableSlots);
+              } else {
+                console.log('No hay datos guardados para esta fecha, usando valores por defecto');
+              }
+            } catch (parseError) {
+              console.error('Error al parsear los datos guardados:', parseError);
+            }
+          } else {
+            console.log('No hay datos guardados en localStorage, usando valores por defecto');
           }
 
-          // Convertir índices a IDs de slots
-          const doctorUnavailableSlots = unavailableSlotIndices.map(index => {
-            const slotId = timeSlots[index]?.id || '';
-            return normalizeSlotId(slotId);
-          });
+          // Si no hay datos guardados o no hay datos para esta fecha, usar valores por defecto
+          if (doctorUnavailableSlots.length === 0) {
+            // Generar datos de demostración basados en la fecha seleccionada
+            const day = selectedDate.getDate();
+            const unavailableSlotIndices = [];
 
-          console.log('Slots que el doctor ha marcado como no disponibles:', doctorUnavailableSlots);
+            // Usar el día para determinar qué slots no están disponibles
+            for (let i = 0; i < 5; i++) {
+              const index = (day + i * 3) % timeSlots.length;
+              unavailableSlotIndices.push(index);
+            }
+
+            // Convertir índices a IDs de slots
+            doctorUnavailableSlots = unavailableSlotIndices.map(index => {
+              const slotId = timeSlots[index]?.id || '';
+              return normalizeSlotId(slotId);
+            });
+
+            console.log('Usando slots no disponibles generados:', doctorUnavailableSlots);
+          }
 
           // Simular slots reservados por otros pacientes
-          // Usamos slots fijos para simplificar
           const bookedSlots = ['Bloque_3', 'Bloque_7'].map(slotId => normalizeSlotId(slotId));
           console.log('Slots reservados por otros pacientes:', bookedSlots);
 
@@ -385,9 +404,11 @@ const AppointmentPage = () => {
           // Actualizar el estado con los slots disponibles
           setAvailableSlots(availableSlotsList);
 
-          // Mostrar mensaje informativo sobre datos de demostración
+          // Mostrar mensaje informativo
           setToast({
-            message: 'Nota: Se están utilizando datos de demostración para los horarios disponibles.',
+            message: savedSchedule
+              ? 'Mostrando horarios disponibles basados en la configuración del doctor.'
+              : 'Nota: Se están utilizando datos de demostración para los horarios disponibles.',
             type: 'info',
             duration: 3000
           });
