@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../api/axios';
 import { format, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import Navbar from '../components/common/Navbar';
@@ -127,7 +127,7 @@ const AppointmentPage = () => {
 
     try {
       // Call API to get available slots for the selected date
-      const response = await axios.get(`/api/appointments/available-slots?date=${formatDateForApi(date)}`);
+      const response = await api.get(`/api/appointments/available-slots?date=${formatDateForApi(date)}`);
 
       if (response.data && response.data.availableSlots) {
         setAvailableSlots(response.data.availableSlots);
@@ -243,7 +243,20 @@ const AppointmentPage = () => {
 
       console.log('Datos de la cita a enviar:', appointmentData);
 
-      const response = await axios.post('/api/appointments', appointmentData);
+      // Verificar si el token está disponible
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setToast({
+          message: 'No hay sesión activa. Por favor, inicie sesión nuevamente.',
+          type: 'error'
+        });
+        setTimeout(() => {
+          navigate('/login');
+        }, 2000);
+        return;
+      }
+
+      const response = await api.post('/api/appointments', appointmentData);
 
       if (response.data && response.data.appointment) {
         setToast({
