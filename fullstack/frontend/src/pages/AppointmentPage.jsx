@@ -217,16 +217,31 @@ const AppointmentPage = () => {
       const doctorId = 1;
 
       // Combinar fecha y hora seleccionada
-      const [hour, minute] = timeSlots.find(slot => slot.id === selectedSlot)?.time.split(':')[0].split(' - ')[0].split(':') || [9, 0];
+      const timeSlotInfo = timeSlots.find(slot => slot.id === selectedSlot);
+      const timeString = timeSlotInfo?.time || '09:00 - 10:00';
+      const hourStr = timeString.split(' - ')[0];
+      const hour = parseInt(hourStr.split(':')[0]);
+      const minute = parseInt(hourStr.split(':')[1] || '0');
+
+      console.log('Hora seleccionada:', { timeString, hour, minute });
+
       const appointmentDateTime = new Date(selectedDate);
-      appointmentDateTime.setHours(parseInt(hour), parseInt(minute) || 0, 0, 0);
+      appointmentDateTime.setHours(hour, minute, 0, 0);
+
+      console.log('Fecha y hora de la cita:', appointmentDateTime);
+
+      // Para demo, usamos un ID de paciente fijo si no está disponible
+      const patientId = user?.patientProfile?.id || 1;
 
       const appointmentData = {
         date: appointmentDateTime.toISOString(),
-        patientId: user?.patientProfile?.id,
+        patientId: patientId,
         doctorId: doctorId,
+        status: 'scheduled',
         notes: `${formData.reason}\n${formData.notes || ''}`
       };
+
+      console.log('Datos de la cita a enviar:', appointmentData);
 
       const response = await axios.post('/api/appointments', appointmentData);
 
@@ -255,8 +270,13 @@ const AppointmentPage = () => {
       }
     } catch (error) {
       console.error('Error booking appointment:', error);
+      console.error('Error details:', error.response?.data);
+
+      // Mostrar un mensaje de error más detallado si está disponible
+      const errorMessage = error.response?.data?.error || 'Error al agendar la cita. Intente nuevamente.';
+
       setToast({
-        message: 'Error al agendar la cita. Intente nuevamente.',
+        message: errorMessage,
         type: 'error'
       });
     } finally {

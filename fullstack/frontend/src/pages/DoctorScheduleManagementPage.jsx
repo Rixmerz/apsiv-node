@@ -12,13 +12,16 @@ const DoctorScheduleManagementPage = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
-  
+
   // Estado para la semana actual
   const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
-  
+
   // Estado para los horarios disponibles
   const [availableSlots, setAvailableSlots] = useState({});
-  
+
+  // Estado para controlar si los datos se han cargado inicialmente
+  const [initialDataLoaded, setInitialDataLoaded] = useState(false);
+
   // Horarios posibles (8:00 AM a 6:00 PM)
   const timeSlots = Array.from({ length: 11 }, (_, i) => {
     const hour = i + 8;
@@ -27,7 +30,7 @@ const DoctorScheduleManagementPage = () => {
       time: `${hour}:00 - ${hour + 1}:00`
     };
   });
-  
+
   // Generar los días de la semana actual
   const weekDays = Array.from({ length: 7 }, (_, i) => {
     const day = addDays(currentWeek, i);
@@ -38,7 +41,7 @@ const DoctorScheduleManagementPage = () => {
       month: format(day, 'MMMM', { locale: es })
     };
   });
-  
+
   // Cargar los horarios disponibles del doctor
   useEffect(() => {
     const fetchAvailableSlots = async () => {
@@ -50,27 +53,52 @@ const DoctorScheduleManagementPage = () => {
         setLoading(false);
         return;
       }
-      
+
       try {
         setLoading(true);
-        
+
         // En un entorno real, aquí se haría una llamada a la API
         // para obtener los horarios disponibles del doctor
-        
-        // Para demo, generamos datos aleatorios
-        const slots = {};
-        
-        weekDays.forEach(day => {
-          const dateStr = format(day.date, 'yyyy-MM-dd');
-          slots[dateStr] = {};
-          
-          timeSlots.forEach(slot => {
-            // 70% de probabilidad de que el horario esté disponible
-            slots[dateStr][slot.id] = Math.random() > 0.3;
+
+        // Para demo, generamos datos aleatorios solo si no se han cargado antes
+        if (!initialDataLoaded) {
+          console.log('Inicializando datos de disponibilidad');
+          const slots = {};
+
+          weekDays.forEach(day => {
+            const dateStr = format(day.date, 'yyyy-MM-dd');
+            slots[dateStr] = {};
+
+            timeSlots.forEach(slot => {
+              // 70% de probabilidad de que el horario esté disponible
+              slots[dateStr][slot.id] = Math.random() > 0.3;
+            });
           });
-        });
-        
-        setAvailableSlots(slots);
+
+          setAvailableSlots(slots);
+          setInitialDataLoaded(true);
+        } else {
+          // Si ya se cargaron los datos, solo agregamos las fechas nuevas que no existan
+          console.log('Actualizando datos de disponibilidad para nuevas fechas');
+          setAvailableSlots(prevSlots => {
+            const newSlots = { ...prevSlots };
+
+            weekDays.forEach(day => {
+              const dateStr = format(day.date, 'yyyy-MM-dd');
+
+              if (!newSlots[dateStr]) {
+                newSlots[dateStr] = {};
+
+                timeSlots.forEach(slot => {
+                  // 70% de probabilidad de que el horario esté disponible
+                  newSlots[dateStr][slot.id] = Math.random() > 0.3;
+                });
+              }
+            });
+
+            return newSlots;
+          });
+        }
       } catch (error) {
         console.error('Error fetching available slots:', error);
         setToast({
@@ -81,51 +109,57 @@ const DoctorScheduleManagementPage = () => {
         setLoading(false);
       }
     };
-    
+
     fetchAvailableSlots();
-  }, [user, currentWeek]);
-  
+  }, [user, currentWeek, timeSlots, weekDays, initialDataLoaded]);
+
   // Navegar a la semana anterior
   const goToPreviousWeek = () => {
     setCurrentWeek(prevWeek => subWeeks(prevWeek, 1));
   };
-  
+
   // Navegar a la semana siguiente
   const goToNextWeek = () => {
     setCurrentWeek(prevWeek => addWeeks(prevWeek, 1));
   };
-  
+
   // Navegar a la semana actual
   const goToCurrentWeek = () => {
     setCurrentWeek(startOfWeek(new Date(), { weekStartsOn: 1 }));
   };
-  
+
   // Cambiar la disponibilidad de un horario
   const toggleSlotAvailability = (dateStr, slotId) => {
+    console.log(`Cambiando disponibilidad para ${dateStr}, slot ${slotId}`);
+    console.log('Estado actual:', availableSlots[dateStr]?.[slotId]);
+
     setAvailableSlots(prevSlots => {
-      const newSlots = { ...prevSlots };
-      
+      // Crear una copia profunda del objeto para asegurar que React detecte el cambio
+      const newSlots = JSON.parse(JSON.stringify(prevSlots));
+
       if (!newSlots[dateStr]) {
         newSlots[dateStr] = {};
       }
-      
+
+      // Invertir el valor actual
       newSlots[dateStr][slotId] = !newSlots[dateStr][slotId];
-      
+
+      console.log('Nuevo estado:', newSlots[dateStr][slotId]);
       return newSlots;
     });
   };
-  
+
   // Guardar los cambios
   const saveChanges = async () => {
     try {
       setLoading(true);
-      
+
       // En un entorno real, aquí se haría una llamada a la API
       // para guardar los horarios disponibles del doctor
-      
+
       // Simulamos una llamada exitosa
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
+
       setToast({
         message: 'Horarios guardados con éxito',
         type: 'success'
@@ -140,36 +174,36 @@ const DoctorScheduleManagementPage = () => {
       setLoading(false);
     }
   };
-  
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
-      
+
       <main className="flex-grow py-8 bg-gray-50">
         <div className="container-custom">
           <div className="bg-white rounded-xl shadow-md p-6">
             <div className="flex justify-between items-center mb-6">
               <h1 className="text-2xl md:text-3xl font-bold">Gestión de Horarios Disponibles</h1>
-              
+
               <div className="flex space-x-2">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={goToPreviousWeek}
                   aria-label="Semana anterior"
                 >
                   &lt; Anterior
                 </Button>
-                
-                <Button 
-                  variant="outline" 
+
+                <Button
+                  variant="outline"
                   onClick={goToCurrentWeek}
                   aria-label="Semana actual"
                 >
                   Hoy
                 </Button>
-                
-                <Button 
-                  variant="outline" 
+
+                <Button
+                  variant="outline"
                   onClick={goToNextWeek}
                   aria-label="Semana siguiente"
                 >
@@ -177,12 +211,12 @@ const DoctorScheduleManagementPage = () => {
                 </Button>
               </div>
             </div>
-            
+
             <p className="text-gray-600 mb-6">
               Seleccione los horarios en los que estará disponible para atender pacientes.
               Haga clic en un horario para marcarlo como disponible o no disponible.
             </p>
-            
+
             {loading ? (
               <div className="flex justify-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
@@ -195,8 +229,8 @@ const DoctorScheduleManagementPage = () => {
                       <tr>
                         <th className="p-3 border bg-gray-100 w-20"></th>
                         {weekDays.map((day, index) => (
-                          <th 
-                            key={index} 
+                          <th
+                            key={index}
                             className={`p-3 border text-center ${
                               isSameDay(day.date, new Date()) ? 'bg-primary-light/20' : 'bg-gray-100'
                             }`}
@@ -216,10 +250,10 @@ const DoctorScheduleManagementPage = () => {
                           {weekDays.map((day, dayIndex) => {
                             const dateStr = format(day.date, 'yyyy-MM-dd');
                             const isAvailable = availableSlots[dateStr]?.[slot.id];
-                            
+
                             return (
-                              <td 
-                                key={dayIndex} 
+                              <td
+                                key={dayIndex}
                                 className={`p-2 border relative h-16 ${
                                   isSameDay(day.date, new Date()) ? 'bg-primary-light/10' : ''
                                 }`}
@@ -242,7 +276,7 @@ const DoctorScheduleManagementPage = () => {
                     </tbody>
                   </table>
                 </div>
-                
+
                 <div className="flex justify-end">
                   <Button
                     variant="primary"
@@ -258,9 +292,9 @@ const DoctorScheduleManagementPage = () => {
           </div>
         </div>
       </main>
-      
+
       <Footer />
-      
+
       {/* Toast notification */}
       {toast && (
         <Toast
