@@ -352,9 +352,8 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
 
       // Marcar el slot como no disponible
       if (slotId) {
-        // Normalizar el ID del slot para asegurar consistencia
-        const normalizedSlotId = normalizeSlotId(slotId);
-        availableSlots[normalizedSlotId] = false;
+        // El slotId ya está normalizado en la línea anterior, no es necesario normalizarlo de nuevo
+        availableSlots[slotId] = false;
       }
     });
 
