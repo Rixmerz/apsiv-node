@@ -49,9 +49,14 @@ const Navbar = () => {
                 )}
 
                 {user?.role === 'doctor' && (
-                  <Link to="/doctor/schedule" className="text-lg font-medium hover:text-primary transition-colors">
-                    Mi Calendario
-                  </Link>
+                  <>
+                    <Link to="/doctor/schedule" className="text-lg font-medium hover:text-primary transition-colors">
+                      Mi Calendario
+                    </Link>
+                    <Link to="/doctor/manage-schedule" className="text-lg font-medium hover:text-primary transition-colors">
+                      Gestionar Horarios
+                    </Link>
+                  </>
                 )}
 
                 {user?.role === 'admin' && (
@@ -144,13 +149,22 @@ const Navbar = () => {
                 )}
 
                 {user?.role === 'doctor' && (
-                  <Link
-                    to="/doctor/schedule"
-                    className="block text-xl font-medium hover:text-primary transition-colors py-2"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Mi Calendario
-                  </Link>
+                  <>
+                    <Link
+                      to="/doctor/schedule"
+                      className="block text-xl font-medium hover:text-primary transition-colors py-2"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      Mi Calendario
+                    </Link>
+                    <Link
+                      to="/doctor/manage-schedule"
+                      className="block text-xl font-medium hover:text-primary transition-colors py-2"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      Gestionar Horarios
+                    </Link>
+                  </>
                 )}
 
                 {user?.role === 'admin' && (

@@ -213,17 +213,24 @@ const AppointmentPage = () => {
     setLoading(true);
 
     try {
+      // Para demo, usamos el primer doctor disponible (ID 1)
+      const doctorId = 1;
+
+      // Combinar fecha y hora seleccionada
+      const [hour, minute] = timeSlots.find(slot => slot.id === selectedSlot)?.time.split(':')[0].split(' - ')[0].split(':') || [9, 0];
+      const appointmentDateTime = new Date(selectedDate);
+      appointmentDateTime.setHours(parseInt(hour), parseInt(minute) || 0, 0, 0);
+
       const appointmentData = {
-        date: formatDateForApi(selectedDate),
-        timeSlot: selectedSlot,
-        patientId: user?.patientProfile?.id || user?.id,
-        reason: formData.reason,
-        notes: formData.notes
+        date: appointmentDateTime.toISOString(),
+        patientId: user?.patientProfile?.id,
+        doctorId: doctorId,
+        notes: `${formData.reason}\n${formData.notes || ''}`
       };
 
       const response = await axios.post('/api/appointments', appointmentData);
 
-      if (response.data.success) {
+      if (response.data && response.data.appointment) {
         setToast({
           message: '¡Cita agendada con éxito!',
           type: 'success'
