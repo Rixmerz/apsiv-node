@@ -104,28 +104,7 @@ const AppointmentPage = () => {
     return format(date, 'yyyy-MM-dd');
   };
 
-  // Función para convertir IDs de slots a un formato consistente
-  const normalizeSlotId = (slotId) => {
-    // Asegurarse de que el ID del slot tenga el formato correcto (slot_X)
-    if (!slotId) return null;
 
-    // Si ya tiene el formato correcto, devolverlo tal cual
-    if (slotId.startsWith('slot_')) return slotId;
-
-    // Si es Bloque_X, convertirlo a slot_X
-    if (slotId.startsWith('Bloque_')) {
-      const number = slotId.replace('Bloque_', '');
-      return `slot_${number}`;
-    }
-
-    // Si es un número, convertirlo a slot_X
-    if (!isNaN(slotId)) {
-      return `slot_${slotId}`;
-    }
-
-    // Si no se puede convertir, devolver el original
-    return slotId;
-  };
 
   // Handle month selection
   const handleMonthSelect = (month, year) => {
@@ -333,81 +312,116 @@ const AppointmentPage = () => {
 
       // Consultar directamente el endpoint de slots disponibles
       console.log(`Consultando API para slots disponibles del doctor ${doctorId} en fecha ${dateStr}`);
-      const response = await api.get(`/api/appointments/available-slots/${doctorId}/${dateStr}`);
-      console.log('Respuesta del servidor:', response.data);
 
-      // Verificar si el componente sigue montado antes de actualizar el estado
-      if (!isMounted.current) return;
+      // Agregar un timeout para la solicitud
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 segundos de timeout
 
-      if (response.data && response.data.slots) {
-        // Convertir el objeto de slots a un array para el frontend
-        const slotsData = response.data.slots;
-        const hasAvailableSlots = response.data.hasAvailableSlots || false;
-
-        console.log('Respuesta del backend - hasAvailableSlots:', hasAvailableSlots);
-
-        // Mapear los slots disponibles a la estructura que espera el frontend
-        const availableSlotsList = timeSlots.map(slot => {
-          const isAvailable = slotsData[slot.id] === true;
-
-          return {
-            ...slot,
-            available: isAvailable
-          };
+      try {
+        const response = await api.get(`/api/appointments/available-slots/${doctorId}/${dateStr}`, {
+          signal: controller.signal
         });
 
-        console.log('Lista final de slots con disponibilidad:', availableSlotsList);
+        clearTimeout(timeoutId);
+        console.log('Respuesta del servidor:', response.data);
 
-        if (hasAvailableSlots) {
-          console.log('Hay slots disponibles para esta fecha');
-          // Actualizar el estado con los slots disponibles
-          setAvailableSlots(availableSlotsList);
+        // Verificar si el componente sigue montado antes de actualizar el estado
+        if (!isMounted.current) return;
 
-          // Mostrar mensaje informativo
+        if (response.data && response.data.slots) {
+          // Convertir el objeto de slots a un array para el frontend
+          const slotsData = response.data.slots;
+          const doctorSlotsData = response.data.doctorAvailableSlots || {};
+          const hasAvailableSlots = response.data.hasAvailableSlots || false;
+
+          console.log('Respuesta del backend - hasAvailableSlots:', hasAvailableSlots);
+
+          // Mapear los slots disponibles a la estructura que espera el frontend
+          const availableSlotsList = timeSlots.map(slot => {
+            // Un slot está disponible si:
+            // 1. El doctor lo ha marcado como disponible (doctorSlotsData)
+            // 2. No hay cita programada en ese horario (slotsData)
+            const isDoctorAvailable = doctorSlotsData[slot.id] === true;
+            const isSlotFree = slotsData[slot.id] === true;
+
+            return {
+              ...slot,
+              // Solo mostrar como disponible si ambas condiciones son verdaderas
+              available: isDoctorAvailable && isSlotFree,
+
+              // Agregar más información para ayudar en la interfaz de usuario
+              doctorAvailable: isDoctorAvailable,
+              hasExistingAppointment: isDoctorAvailable && !isSlotFree
+            };
+          });
+
+          console.log('Lista final de slots con disponibilidad:', availableSlotsList);
+
+          if (hasAvailableSlots) {
+            console.log('Hay slots disponibles para esta fecha');
+            // Actualizar el estado con los slots disponibles
+            setAvailableSlots(availableSlotsList);
+
+            // Mostrar mensaje informativo
+            setToast({
+              message: 'Mostrando horarios disponibles basados en datos reales de la base de datos.',
+              type: 'success',
+              duration: 3000
+            });
+          } else {
+            console.log('No hay slots disponibles para esta fecha');
+            // Actualizar el estado con los slots no disponibles
+            setAvailableSlots(availableSlotsList);
+
+            // Mostrar mensaje informativo
+            setToast({
+              message: 'No hay horarios disponibles para la fecha seleccionada. Por favor, seleccione otra fecha.',
+              type: 'warning',
+              duration: 5000
+            });
+          }
+        } else {
+          console.log('No se recibieron datos válidos del servidor');
+
+          // Si no hay datos, mostrar todos los slots como no disponibles
+          const defaultSlots = timeSlots.map(slot => ({
+            ...slot,
+            available: false,
+            doctorAvailable: false,
+            hasExistingAppointment: false
+          }));
+
+          setAvailableSlots(defaultSlots);
+
           setToast({
-            message: 'Mostrando horarios disponibles basados en datos reales de la base de datos.',
-            type: 'success',
+            message: 'No hay horarios configurados para esta fecha. Por favor, seleccione otra fecha.',
+            type: 'warning',
             duration: 3000
           });
-        } else {
-          console.log('No hay slots disponibles para esta fecha');
-          // Actualizar el estado con los slots no disponibles
-          setAvailableSlots(availableSlotsList);
-
-          // Forzar la finalización del estado de carga inmediatamente
-          setTimeout(() => {
-            if (isMounted.current) {
-              setLoading(false);
-              console.log('Estado de carga completado (no hay slots disponibles)');
-            }
-          }, 100);
-
-          // Mostrar mensaje informativo
-          setToast({
-            message: 'No hay horarios disponibles para la fecha seleccionada. Por favor, seleccione otra fecha.',
-            type: 'warning',
-            duration: 5000
-          });
         }
-      } else {
-        console.log('No se recibieron datos válidos del servidor');
+      } catch (apiError) {
+        console.error('Error en la llamada a la API:', apiError);
 
-        // Si no hay datos, mostrar todos los slots como no disponibles
-        const defaultSlots = timeSlots.map(slot => ({
+        // Datos de respaldo en caso de error
+        const fallbackSlots = timeSlots.map(slot => ({
           ...slot,
-          available: false
+          available: false,
+          doctorAvailable: false,
+          hasExistingAppointment: false
         }));
 
-        setAvailableSlots(defaultSlots);
+        setAvailableSlots(fallbackSlots);
 
         setToast({
-          message: 'No hay horarios configurados para esta fecha. Por favor, seleccione otra fecha.',
-          type: 'warning',
-          duration: 3000
+          message: 'Error al cargar horarios. Por favor, intente nuevamente o seleccione otra fecha.',
+          type: 'error',
+          duration: 5000
         });
+      } finally {
+        clearTimeout(timeoutId);
       }
     } catch (error) {
-      console.error('Error al generar horarios disponibles:', error);
+      console.error('Error general al obtener slots disponibles:', error);
 
       // Verificar si el componente sigue montado antes de actualizar el estado
       if (!isMounted.current) return;
@@ -415,28 +429,23 @@ const AppointmentPage = () => {
       // En caso de error, mostrar todas las horas como no disponibles
       const fallbackSlots = timeSlots.map(slot => ({
         ...slot,
-        available: false
+        available: false,
+        doctorAvailable: false,
+        hasExistingAppointment: false
       }));
 
       setAvailableSlots(fallbackSlots);
 
       setToast({
-        message: 'Error al cargar horarios. Por favor, intente nuevamente o seleccione otra fecha.',
+        message: 'Error al cargar horarios. Por favor, intente nuevamente.',
         type: 'error',
         duration: 5000
       });
     } finally {
-      // Asegurar que el estado de carga se complete después de un tiempo mínimo
-      // para evitar parpadeos y dar tiempo a que se procesen los datos
+      // Siempre asegurarse de que setLoading(false) se ejecute
       if (isMounted.current) {
-        // Usar setTimeout para asegurar que el estado de carga se complete
-        // incluso si la respuesta es muy rápida
-        setTimeout(() => {
-          if (isMounted.current) {
-            setLoading(false);
-            console.log('Estado de carga completado');
-          }
-        }, 300); // Esperar al menos 300ms para mostrar el resultado
+        setLoading(false);
+        console.log('Estado de carga completado');
       }
     }
   };
@@ -450,48 +459,46 @@ const AppointmentPage = () => {
       console.log('Cargando horas disponibles para la fecha:', selectedDate);
       setLoading(true);
 
-      // Inicializar con valores por defecto mientras se cargan los datos
-      // Importante: inicializamos con available: false para evitar mostrar slots disponibles que luego desaparecen
+      // Inicializar con valores por defecto
       const defaultSlots = timeSlots.map(slot => ({
         ...slot,
-        available: false
+        available: false,
+        doctorAvailable: false,
+        hasExistingAppointment: false
       }));
       setAvailableSlots(defaultSlots);
 
-      // Usar setTimeout para evitar múltiples llamadas en rápida sucesión
-      const fetchTimerId = setTimeout(() => {
-        if (isMounted.current) {
-          fetchAvailableSlots(selectedDate);
+      // Usar un flag para controlar si ya se ha manejado la respuesta
+      let isHandled = false;
+
+      // Llamar a la función de carga con un pequeño retraso
+      const timerId = setTimeout(() => {
+        if (!isHandled && isMounted.current) {
+          fetchAvailableSlots(selectedDate)
+            .finally(() => {
+              isHandled = true;
+            });
         }
       }, 300);
 
-      // Establecer un timeout máximo para la carga
-      // Esto asegura que el estado de carga se complete incluso si hay problemas con la API
-      const maxLoadingTimerId = setTimeout(() => {
-        if (isMounted.current && loading) {
-          console.log('Timeout máximo de carga alcanzado, forzando completado');
+      // Timeout de seguridad para evitar carga infinita
+      const securityTimeoutId = setTimeout(() => {
+        if (!isHandled && isMounted.current) {
+          console.log('Timeout de seguridad activado, completando carga');
           setLoading(false);
+          isHandled = true;
 
-          // Si todavía no hay datos, mostrar un mensaje de error
-          if (availableSlots.length === 0 || !availableSlots.some(slot => slot.available)) {
-            setAvailableSlots(timeSlots.map(slot => ({
-              ...slot,
-              available: false
-            })));
-
-            setToast({
-              message: 'No hay horarios disponibles para esta fecha. Por favor, seleccione otra fecha.',
-              type: 'warning',
-              duration: 5000
-            });
-          }
+          setToast({
+            message: 'La carga de horarios está tomando más tiempo de lo esperado. Por favor, intente nuevamente.',
+            type: 'warning',
+            duration: 5000
+          });
         }
-      }, 2000); // 2 segundos máximo de espera
+      }, 15000); // 15 segundos de timeout de seguridad
 
-      // Limpiar los timers si el efecto se ejecuta nuevamente
       return () => {
-        clearTimeout(fetchTimerId);
-        clearTimeout(maxLoadingTimerId);
+        clearTimeout(timerId);
+        clearTimeout(securityTimeoutId);
       };
     }
   }, [selectedDate, step]);
@@ -595,7 +602,7 @@ const AppointmentPage = () => {
                   <div className="grid grid-cols-7 gap-1">
                     {/* Render calendar grid */}
                     {availableDates.map((date, index) => {
-                      const dayOfWeek = date.getDay() || 7; // 1-7 (Monday-Sunday)
+                      // 1-7 (Monday-Sunday)
                       const isToday = isSameDay(date, new Date());
 
                       return (
@@ -670,12 +677,17 @@ const AppointmentPage = () => {
                                 ? 'border-primary-dark bg-primary-light/20 border-2'
                                 : slot.available
                                   ? 'border-gray-300 hover:bg-gray-50'
-                                  : 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+                                  : slot.doctorAvailable
+                                    ? 'border-gray-200 bg-red-50 text-gray-400 cursor-not-allowed' // El doctor está disponible pero hay una cita
+                                    : 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed' // El doctor no está disponible
                             }`}
                           >
                             <p className="text-lg font-semibold">{slot.time}</p>
-                            {!slot.available && (
+                            {!slot.available && slot.doctorAvailable && (
                               <p className="text-sm text-red-500 mt-1">Reservado</p>
+                            )}
+                            {!slot.doctorAvailable && (
+                              <p className="text-sm text-gray-500 mt-1">No disponible</p>
                             )}
                           </button>
                         ))}

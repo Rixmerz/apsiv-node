@@ -223,18 +223,22 @@ const DoctorScheduleManagementPage = () => {
     console.log(`Cambiando disponibilidad para ${dateStr}, slot ${normalizedSlotId}`);
     console.log('Estado actual:', availableSlots[dateStr]?.[normalizedSlotId]);
 
+    // Usar una variable local para el nuevo valor
+    const newValue = !(availableSlots[dateStr]?.[normalizedSlotId] || false);
+    console.log('Nuevo estado:', newValue);
+
+    // Actualizar el estado una sola vez
     setAvailableSlots(prevSlots => {
-      // Crear una copia profunda del objeto para asegurar que React detecte el cambio
-      const newSlots = JSON.parse(JSON.stringify(prevSlots));
+      // Crear una copia del objeto evitando la serialización innecesaria
+      const newSlots = {...prevSlots};
 
       if (!newSlots[dateStr]) {
         newSlots[dateStr] = {};
       }
 
-      // Invertir el valor actual
-      newSlots[dateStr][normalizedSlotId] = !newSlots[dateStr][normalizedSlotId];
+      // Asignar el nuevo valor
+      newSlots[dateStr][normalizedSlotId] = newValue;
 
-      console.log('Nuevo estado:', newSlots[dateStr][normalizedSlotId]);
       return newSlots;
     });
   };

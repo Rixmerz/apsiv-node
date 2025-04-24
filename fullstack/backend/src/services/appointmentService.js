@@ -3,6 +3,7 @@
  */
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const { normalizeSlotId } = require('../utils/slotUtils');
 
 /**
  * Get all appointments
@@ -267,7 +268,6 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
     }
     console.log(`[Backend] Doctor found: ${JSON.stringify(doctor)}`);
 
-
     // Obtener la configuración del doctor para esta fecha
     const startDate = new Date(dateStr + 'T00:00:00');
     const endDate = new Date(dateStr + 'T23:59:59');
@@ -308,29 +308,35 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
     // Crear un mapa de slots con su disponibilidad
     const availableSlots = {};
 
-    // Primero, marcar todos los slots como disponibles por defecto
+    // Definir los slots por defecto
     const defaultSlots = [
       'Bloque_1', 'Bloque_2', 'Bloque_3', 'Bloque_4',
       'Bloque_5', 'Bloque_6', 'Bloque_7', 'Bloque_8'
     ];
 
+    // Inicializar todos los slots como no disponibles por defecto
+    // Esto es importante para que solo se muestren los slots que el doctor ha marcado explícitamente como disponibles
     defaultSlots.forEach(slotId => {
-      availableSlots[slotId] = true;
+      availableSlots[slotId] = false;
     });
 
-    // Luego, aplicar la configuración del doctor
+    // Aplicar la configuración del doctor - Solo marcar como disponibles los que el doctor ha configurado como disponibles
     doctorSchedule.forEach(schedule => {
-      availableSlots[schedule.slotId] = schedule.available;
+      // Normalizar el ID del slot para asegurar consistencia
+      const normalizedSlotId = normalizeSlotId(schedule.slotId);
+      availableSlots[normalizedSlotId] = schedule.available;
     });
 
-    // Finalmente, marcar como no disponibles los slots que ya tienen citas
+    // Crear una copia de los slots disponibles antes de aplicar las citas existentes
+    const doctorAvailableSlots = {...availableSlots};
+
+    // Marcar como no disponibles los slots que ya tienen citas (independientemente de la configuración del doctor)
     existingAppointments.forEach(appointment => {
       // Extraer el ID del slot de la fecha de la cita
-      // Asumimos que el slotId está codificado en la hora de la cita
       const hour = appointment.date.getHours();
       let slotId;
 
-      // Mapear la hora a un ID de slot (esto debe coincidir con tu lógica de frontend)
+      // Mapear la hora a un ID de slot
       if (hour >= 8 && hour < 10) slotId = 'Bloque_1';
       else if (hour >= 10 && hour < 12) slotId = 'Bloque_2';
       else if (hour >= 12 && hour < 14) slotId = 'Bloque_3';
@@ -342,19 +348,24 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
 
       // Marcar el slot como no disponible
       if (slotId) {
-        availableSlots[slotId] = false;
+        // Normalizar el ID del slot para asegurar consistencia
+        const normalizedSlotId = normalizeSlotId(slotId);
+        availableSlots[normalizedSlotId] = false;
       }
     });
 
+    console.log(`[Backend] Doctor available slots: ${JSON.stringify(doctorAvailableSlots)}`);
     console.log(`[Backend] Final available slots: ${JSON.stringify(availableSlots)}`);
 
     // Verificar si hay al menos un slot disponible
     const hasAvailableSlots = Object.values(availableSlots).some(isAvailable => isAvailable === true);
     console.log(`[Backend] Has available slots: ${hasAvailableSlots}`);
 
+    // Incluir en la respuesta tanto los slots disponibles como los slots configurados por el doctor
     return {
       date: dateStr,
       slots: availableSlots,
+      doctorAvailableSlots: doctorAvailableSlots,
       hasAvailableSlots: hasAvailableSlots
     };
   } catch (error) {

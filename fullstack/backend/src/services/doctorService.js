@@ -3,6 +3,7 @@
  */
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const { normalizeSlotId } = require('../utils/slotUtils');
 
 /**
  * Get doctor schedule
@@ -121,6 +122,9 @@ const updateDoctorSchedule = async (doctorId, availableSlots) => {
           }
 
           for (const slotId in availableSlots[dateStr]) {
+            // Normalizar el ID del slot para asegurar consistencia
+            const normalizedSlotId = normalizeSlotId(slotId);
+
             // Validar que el valor de disponibilidad sea booleano
             const isAvailable = Boolean(availableSlots[dateStr][slotId]);
 
@@ -128,7 +132,7 @@ const updateDoctorSchedule = async (doctorId, availableSlots) => {
               data: {
                 doctorId: doctorIdInt,
                 date: date,
-                slotId: slotId,
+                slotId: normalizedSlotId,
                 available: isAvailable
               }
             });
