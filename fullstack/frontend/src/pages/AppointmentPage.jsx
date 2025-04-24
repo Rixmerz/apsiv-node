@@ -412,8 +412,17 @@ const AppointmentPage = () => {
         duration: 5000
       });
     } finally {
+      // Asegurar que el estado de carga se complete después de un tiempo mínimo
+      // para evitar parpadeos y dar tiempo a que se procesen los datos
       if (isMounted.current) {
-        setLoading(false);
+        // Usar setTimeout para asegurar que el estado de carga se complete
+        // incluso si la respuesta es muy rápida
+        setTimeout(() => {
+          if (isMounted.current) {
+            setLoading(false);
+            console.log('Estado de carga completado');
+          }
+        }, 500); // Esperar al menos 500ms para mostrar el resultado
       }
     }
   };
@@ -428,21 +437,48 @@ const AppointmentPage = () => {
       setLoading(true);
 
       // Inicializar con valores por defecto mientras se cargan los datos
+      // Importante: inicializamos con available: false para evitar mostrar slots disponibles que luego desaparecen
       const defaultSlots = timeSlots.map(slot => ({
         ...slot,
-        available: true
+        available: false
       }));
       setAvailableSlots(defaultSlots);
 
       // Usar setTimeout para evitar múltiples llamadas en rápida sucesión
-      const timerId = setTimeout(() => {
+      const fetchTimerId = setTimeout(() => {
         if (isMounted.current) {
           fetchAvailableSlots(selectedDate);
         }
       }, 300);
 
-      // Limpiar el timer si el efecto se ejecuta nuevamente
-      return () => clearTimeout(timerId);
+      // Establecer un timeout máximo para la carga
+      // Esto asegura que el estado de carga se complete incluso si hay problemas con la API
+      const maxLoadingTimerId = setTimeout(() => {
+        if (isMounted.current && loading) {
+          console.log('Timeout máximo de carga alcanzado, forzando completado');
+          setLoading(false);
+
+          // Si todavía no hay datos, mostrar un mensaje de error
+          if (availableSlots.length === 0 || !availableSlots.some(slot => slot.available)) {
+            setAvailableSlots(timeSlots.map(slot => ({
+              ...slot,
+              available: false
+            })));
+
+            setToast({
+              message: 'No se pudieron cargar los horarios. Por favor, intente nuevamente o seleccione otra fecha.',
+              type: 'error',
+              duration: 5000
+            });
+          }
+        }
+      }, 5000); // 5 segundos máximo de espera
+
+      // Limpiar los timers si el efecto se ejecuta nuevamente
+      return () => {
+        clearTimeout(fetchTimerId);
+        clearTimeout(maxLoadingTimerId);
+      };
     }
   }, [selectedDate, step]);
 
