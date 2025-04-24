@@ -342,6 +342,9 @@ const AppointmentPage = () => {
       if (response.data && response.data.slots) {
         // Convertir el objeto de slots a un array para el frontend
         const slotsData = response.data.slots;
+        const hasAvailableSlots = response.data.hasAvailableSlots || false;
+
+        console.log('Respuesta del backend - hasAvailableSlots:', hasAvailableSlots);
 
         // Mapear los slots disponibles a la estructura que espera el frontend
         const availableSlotsList = timeSlots.map(slot => {
@@ -354,9 +357,6 @@ const AppointmentPage = () => {
         });
 
         console.log('Lista final de slots con disponibilidad:', availableSlotsList);
-
-        // Verificar si hay al menos un slot disponible
-        const hasAvailableSlots = availableSlotsList.some(slot => slot.available);
 
         if (hasAvailableSlots) {
           console.log('Hay slots disponibles para esta fecha');
@@ -373,6 +373,14 @@ const AppointmentPage = () => {
           console.log('No hay slots disponibles para esta fecha');
           // Actualizar el estado con los slots no disponibles
           setAvailableSlots(availableSlotsList);
+
+          // Forzar la finalización del estado de carga inmediatamente
+          setTimeout(() => {
+            if (isMounted.current) {
+              setLoading(false);
+              console.log('Estado de carga completado (no hay slots disponibles)');
+            }
+          }, 100);
 
           // Mostrar mensaje informativo
           setToast({

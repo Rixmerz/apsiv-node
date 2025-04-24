@@ -235,19 +235,26 @@ const deleteAppointment = async (id) => {
  */
 const getAvailableSlotsForDate = async (doctorId, dateStr) => {
   try {
+    console.log(`[Backend] getAvailableSlotsForDate called with doctorId=${doctorId}, date=${dateStr}`);
+
     // Validar el formato de la fecha
     const date = new Date(dateStr);
     if (isNaN(date.getTime())) {
+      console.error(`[Backend] Invalid date format: ${dateStr}`);
       throw new Error(`Invalid date format: ${dateStr}`);
     }
+    console.log(`[Backend] Parsed date: ${date.toISOString()}`);
 
     // Convertir doctorId a entero
     const doctorIdInt = parseInt(doctorId);
     if (isNaN(doctorIdInt)) {
+      console.error(`[Backend] Invalid doctor ID: ${doctorId}`);
       throw new Error(`Invalid doctor ID: ${doctorId}`);
     }
+    console.log(`[Backend] Parsed doctorId: ${doctorIdInt}`);
 
     // Verificar que el doctor exista
+    console.log(`[Backend] Finding doctor with ID: ${doctorIdInt}`);
     const doctor = await prisma.doctor.findUnique({
       where: {
         id: doctorIdInt
@@ -255,30 +262,48 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
     });
 
     if (!doctor) {
+      console.error(`[Backend] Doctor not found with ID: ${doctorIdInt}`);
       throw new Error(`Doctor not found with ID: ${doctorIdInt}`);
     }
+    console.log(`[Backend] Doctor found: ${JSON.stringify(doctor)}`);
+
 
     // Obtener la configuración del doctor para esta fecha
+    const startDate = new Date(dateStr + 'T00:00:00');
+    const endDate = new Date(dateStr + 'T23:59:59');
+    console.log(`[Backend] Searching for doctor schedule between ${startDate.toISOString()} and ${endDate.toISOString()}`);
+
     const doctorSchedule = await prisma.doctorSchedule.findMany({
       where: {
         doctorId: doctorIdInt,
         date: {
-          gte: new Date(dateStr + 'T00:00:00'),
-          lt: new Date(dateStr + 'T23:59:59')
+          gte: startDate,
+          lt: endDate
         }
       }
     });
 
+    console.log(`[Backend] Found ${doctorSchedule.length} schedule entries for doctor ${doctorIdInt}`);
+    if (doctorSchedule.length > 0) {
+      console.log(`[Backend] Sample schedule entry: ${JSON.stringify(doctorSchedule[0])}`);
+    }
+
     // Obtener las citas existentes para esta fecha
+    console.log(`[Backend] Searching for existing appointments on ${dateStr}`);
     const existingAppointments = await prisma.appointment.findMany({
       where: {
         doctorId: doctorIdInt,
         date: {
-          gte: new Date(dateStr + 'T00:00:00'),
-          lt: new Date(dateStr + 'T23:59:59')
+          gte: startDate,
+          lt: endDate
         }
       }
     });
+
+    console.log(`[Backend] Found ${existingAppointments.length} existing appointments for doctor ${doctorIdInt}`);
+    if (existingAppointments.length > 0) {
+      console.log(`[Backend] Sample appointment: ${JSON.stringify(existingAppointments[0])}`);
+    }
 
     // Crear un mapa de slots con su disponibilidad
     const availableSlots = {};
@@ -321,9 +346,16 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
       }
     });
 
+    console.log(`[Backend] Final available slots: ${JSON.stringify(availableSlots)}`);
+
+    // Verificar si hay al menos un slot disponible
+    const hasAvailableSlots = Object.values(availableSlots).some(isAvailable => isAvailable === true);
+    console.log(`[Backend] Has available slots: ${hasAvailableSlots}`);
+
     return {
       date: dateStr,
-      slots: availableSlots
+      slots: availableSlots,
+      hasAvailableSlots: hasAvailableSlots
     };
   } catch (error) {
     throw new Error(`Error getting available slots: ${error.message}`);
