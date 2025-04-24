@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import { format, isSameDay } from 'date-fns';
@@ -303,110 +303,131 @@ const AppointmentPage = () => {
     }
   };
 
-  // Obtener las horas disponibles para la fecha seleccionada
+  // Referencia para controlar si el componente está montado
+  const isMounted = React.useRef(true);
+
+  // Limpiar la referencia cuando el componente se desmonte
   useEffect(() => {
-    console.log('useEffect para cargar horas disponibles. Fecha:', selectedDate, 'Paso:', step);
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
-    if (selectedDate && step === 3) {
-      console.log('Cargando horas disponibles para la fecha:', selectedDate);
-      setLoading(true);
+  // Función para obtener los horarios disponibles (fuera del useEffect)
+  const fetchAvailableSlots = async (dateObj) => {
+    if (!dateObj) return;
 
-      // Asegurarse de que availableSlots se inicialice correctamente si está vacío
-      if (availableSlots.length === 0) {
-        console.log('availableSlots está vacío, inicializando con valores por defecto');
+    try {
+      // Formatear la fecha para la API
+      const dateStr = formatDateForApi(dateObj);
+      console.log(`Obteniendo horarios disponibles para la fecha ${dateStr}`);
+
+      // Aquí usamos un ID de doctor fijo (1) para demo
+      const doctorId = 1;
+
+      // Consultar directamente el endpoint de slots disponibles
+      console.log(`Consultando API para slots disponibles del doctor ${doctorId} en fecha ${dateStr}`);
+      const response = await api.get(`/api/appointments/available-slots/${doctorId}/${dateStr}`);
+      console.log('Respuesta del servidor:', response.data);
+
+      // Verificar si el componente sigue montado antes de actualizar el estado
+      if (!isMounted.current) return;
+
+      if (response.data && response.data.slots) {
+        // Convertir el objeto de slots a un array para el frontend
+        const slotsData = response.data.slots;
+
+        // Mapear los slots disponibles a la estructura que espera el frontend
+        const availableSlotsList = timeSlots.map(slot => {
+          const isAvailable = slotsData[slot.id] === true;
+
+          return {
+            ...slot,
+            available: isAvailable
+          };
+        });
+
+        console.log('Lista final de slots con disponibilidad:', availableSlotsList);
+
+        // Actualizar el estado con los slots disponibles
+        setAvailableSlots(availableSlotsList);
+
+        // Mostrar mensaje informativo
+        setToast({
+          message: 'Mostrando horarios disponibles basados en datos reales de la base de datos.',
+          type: 'success',
+          duration: 3000
+        });
+      } else {
+        console.log('No se recibieron datos válidos del servidor');
+
+        // Si no hay datos, mostrar todos los slots como disponibles
         const defaultSlots = timeSlots.map(slot => ({
           ...slot,
           available: true
         }));
+
         setAvailableSlots(defaultSlots);
+
+        setToast({
+          message: 'No se encontraron datos de disponibilidad. Mostrando todos los horarios como disponibles.',
+          type: 'warning',
+          duration: 3000
+        });
       }
+    } catch (error) {
+      console.error('Error al generar horarios disponibles:', error);
 
-      // Formatear la fecha para la API
-      const dateStr = formatDateForApi(selectedDate);
-      console.log('Fecha formateada para API:', dateStr);
+      // Verificar si el componente sigue montado antes de actualizar el estado
+      if (!isMounted.current) return;
 
-      // Función para obtener los horarios disponibles
-      const fetchAvailableSlots = async () => {
-        try {
-          console.log(`Obteniendo horarios disponibles para la fecha ${dateStr}`);
+      // En caso de error, mostrar todas las horas como disponibles
+      const fallbackSlots = timeSlots.map(slot => ({
+        ...slot,
+        available: true
+      }));
 
-          // Aquí usamos un ID de doctor fijo (1) para demo
-          // En un entorno real, se obtendría de la selección del usuario
-          const doctorId = 1;
+      setAvailableSlots(fallbackSlots);
 
-          // Consultar directamente el endpoint de slots disponibles
-          console.log(`Consultando API para slots disponibles del doctor ${doctorId} en fecha ${dateStr}`);
-          const response = await api.get(`/api/appointments/available-slots/${doctorId}/${dateStr}`);
-          console.log('Respuesta del servidor:', response.data);
-
-          if (response.data && response.data.slots) {
-            // Convertir el objeto de slots a un array para el frontend
-            const slotsData = response.data.slots;
-
-            // Mapear los slots disponibles a la estructura que espera el frontend
-            const availableSlotsList = timeSlots.map(slot => {
-              const slotId = normalizeSlotId(slot.id);
-              const isAvailable = slotsData[slot.id] === true;
-
-              return {
-                ...slot,
-                available: isAvailable
-              };
-            });
-
-            console.log('Lista final de slots con disponibilidad:', availableSlotsList);
-
-            // Actualizar el estado con los slots disponibles
-            setAvailableSlots(availableSlotsList);
-
-            // Mostrar mensaje informativo
-            setToast({
-              message: 'Mostrando horarios disponibles basados en datos reales de la base de datos.',
-              type: 'success',
-              duration: 3000
-            });
-          } else {
-            console.log('No se recibieron datos válidos del servidor');
-
-            // Si no hay datos, mostrar todos los slots como disponibles
-            const defaultSlots = timeSlots.map(slot => ({
-              ...slot,
-              available: true
-            }));
-
-            setAvailableSlots(defaultSlots);
-
-            setToast({
-              message: 'No se encontraron datos de disponibilidad. Mostrando todos los horarios como disponibles.',
-              type: 'warning',
-              duration: 3000
-            });
-          }
-        } catch (error) {
-          console.error('Error al generar horarios disponibles:', error);
-
-          // En caso de error, mostrar todas las horas como disponibles
-          const fallbackSlots = timeSlots.map(slot => ({
-            ...slot,
-            available: true
-          }));
-
-          setAvailableSlots(fallbackSlots);
-
-          setToast({
-            message: 'Error al cargar horarios. Mostrando todos los horarios como disponibles.',
-            type: 'error',
-            duration: 5000
-          });
-        } finally {
-          setLoading(false);
-        }
-      };
-
-      // Ejecutar la función para obtener los horarios
-      fetchAvailableSlots();
+      setToast({
+        message: 'Error al cargar horarios. Mostrando todos los horarios como disponibles.',
+        type: 'error',
+        duration: 5000
+      });
+    } finally {
+      if (isMounted.current) {
+        setLoading(false);
+      }
     }
-  }, [selectedDate, step, timeSlots]);
+  };
+
+  // Efecto para cargar los horarios disponibles cuando cambia la fecha o el paso
+  useEffect(() => {
+    console.log('useEffect para cargar horas disponibles. Fecha:', selectedDate, 'Paso:', step);
+
+    // Solo cargar horarios cuando estamos en el paso 3 y hay una fecha seleccionada
+    if (selectedDate && step === 3) {
+      console.log('Cargando horas disponibles para la fecha:', selectedDate);
+      setLoading(true);
+
+      // Inicializar con valores por defecto mientras se cargan los datos
+      const defaultSlots = timeSlots.map(slot => ({
+        ...slot,
+        available: true
+      }));
+      setAvailableSlots(defaultSlots);
+
+      // Usar setTimeout para evitar múltiples llamadas en rápida sucesión
+      const timerId = setTimeout(() => {
+        if (isMounted.current) {
+          fetchAvailableSlots(selectedDate);
+        }
+      }, 300);
+
+      // Limpiar el timer si el efecto se ejecuta nuevamente
+      return () => clearTimeout(timerId);
+    }
+  }, [selectedDate, step]);
 
   // Nota: La función loadFromLocalStorage ya no se usa porque ahora generamos datos de demostración
   // directamente en fetchAvailableSlots para evitar problemas de bucle infinito y errores de recursos.
