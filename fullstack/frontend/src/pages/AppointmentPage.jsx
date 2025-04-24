@@ -308,152 +308,136 @@ const AppointmentPage = () => {
     if (!dateObj) return;
 
     try {
-      // Formatear la fecha para la API
       const dateStr = formatDateForApi(dateObj);
-      console.log(`Obteniendo horarios disponibles para la fecha ${dateStr}`);
+      console.log(`Iniciando fetchAvailableSlots para fecha ${dateStr}`);
 
-      // Aquí usamos un ID de doctor fijo (1) para demo
+      // Usar un ID de doctor fijo para demo
       const doctorId = 1;
 
-      // Consultar directamente el endpoint de slots disponibles
-      console.log(`Consultando API para slots disponibles del doctor ${doctorId} en fecha ${dateStr}`);
+      // Agregar logs detallados antes de la llamada API
+      console.log(`Preparando petición API: GET /api/appointments/available-slots/${doctorId}/${dateStr}`);
 
-      // Agregar un timeout para la solicitud
+      // Crear un timeout para la petición
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 segundos de timeout
+      const timeoutId = setTimeout(() => {
+        console.log("Abortando petición por timeout (10s)");
+        controller.abort();
+      }, 10000);
 
       try {
+        // Intentar hacer la petición con un timeout
+        console.log("Ejecutando petición API...");
         const response = await api.get(`/api/appointments/available-slots/${doctorId}/${dateStr}`, {
           signal: controller.signal
         });
 
         clearTimeout(timeoutId);
-        console.log('Respuesta del servidor:', response.data);
+        console.log("Petición completada exitosamente");
+        console.log("Datos recibidos:", response.data);
 
-        // Verificar si el componente sigue montado antes de actualizar el estado
-        if (!isMounted.current) return;
+        if (!isMounted.current) {
+          console.log("Componente desmontado, cancelando actualización de estado");
+          return;
+        }
 
-        if (response.data && response.data.slots) {
-          // Convertir el objeto de slots a un array para el frontend
-          const slotsData = response.data.slots;
-          const doctorSlotsData = response.data.doctorAvailableSlots || {};
-          const hasAvailableSlots = response.data.hasAvailableSlots || false;
+        // Verificar la estructura de los datos recibidos
+        if (!response.data) {
+          throw new Error("No se recibieron datos del servidor");
+        }
 
-          console.log('Respuesta del backend - hasAvailableSlots:', hasAvailableSlots);
+        // Extraer y procesar los datos
+        const slotsData = response.data.slots || {};
+        const doctorSlotsData = response.data.doctorAvailableSlots || {};
 
-          // Mapear los slots disponibles a la estructura que espera el frontend
-          const availableSlotsList = timeSlots.map(slot => {
-            // Normalizar el ID del slot para buscar en los datos del backend
-            const backendSlotId = normalizeSlotId(slot.id);
+        console.log("Mapeando slots del backend al formato frontend");
+        console.log("Slots disponibles según backend:", slotsData);
+        console.log("Configuración del doctor:", doctorSlotsData);
 
-            // Un slot está disponible si:
-            // 1. El doctor lo ha marcado como disponible (doctorSlotsData)
-            // 2. No hay cita programada en ese horario (slotsData)
-            const isDoctorAvailable = doctorSlotsData[backendSlotId] === true;
-            const isSlotFree = slotsData[backendSlotId] === true;
+        // Mapear los slots disponibles a la estructura que espera el frontend
+        const availableSlotsList = timeSlots.map(slot => {
+          // Normalizar el ID del slot para buscar en los datos del backend
+          const backendSlotId = normalizeSlotId(slot.id);
+          console.log(`Procesando slot ${slot.id} (normalizado: ${backendSlotId})`);
 
-            return {
-              ...slot,
-              // Solo mostrar como disponible si ambas condiciones son verdaderas
-              available: isDoctorAvailable && isSlotFree,
+          // Determinar disponibilidad
+          const isDoctorAvailable = doctorSlotsData[backendSlotId] === true;
+          const isSlotFree = slotsData[backendSlotId] === true;
+          const isAvailable = isDoctorAvailable && isSlotFree;
 
-              // Agregar más información para ayudar en la interfaz de usuario
-              doctorAvailable: isDoctorAvailable,
-              hasExistingAppointment: isDoctorAvailable && !isSlotFree
-            };
-          });
+          console.log(`Slot ${slot.id}: doctor disponible=${isDoctorAvailable}, libre=${isSlotFree}, disponible=${isAvailable}`);
 
-          console.log('Lista final de slots con disponibilidad:', availableSlotsList);
+          return {
+            ...slot,
+            available: isAvailable,
+            doctorAvailable: isDoctorAvailable,
+            hasExistingAppointment: isDoctorAvailable && !isSlotFree
+          };
+        });
 
-          if (hasAvailableSlots) {
-            console.log('Hay slots disponibles para esta fecha');
-            // Actualizar el estado con los slots disponibles
-            setAvailableSlots(availableSlotsList);
+        console.log("Lista final de slots procesados:", availableSlotsList);
 
-            // Mostrar mensaje informativo
-            setToast({
-              message: 'Mostrando horarios disponibles basados en datos reales de la base de datos.',
-              type: 'success',
-              duration: 3000
-            });
-          } else {
-            console.log('No hay slots disponibles para esta fecha');
-            // Actualizar el estado con los slots no disponibles
-            setAvailableSlots(availableSlotsList);
+        // Actualizar estado
+        setAvailableSlots(availableSlotsList);
+        setLoading(false);
 
-            // Mostrar mensaje informativo
-            setToast({
-              message: 'No hay horarios disponibles para la fecha seleccionada. Por favor, seleccione otra fecha.',
-              type: 'warning',
-              duration: 5000
-            });
-          }
-        } else {
-          console.log('No se recibieron datos válidos del servidor');
+        // Mostrar mensaje informativo
+        const hasAvailableSlots = availableSlotsList.some(slot => slot.available);
+        setToast({
+          message: hasAvailableSlots
+            ? 'Horarios disponibles cargados correctamente.'
+            : 'No hay horarios disponibles para esta fecha. Por favor, seleccione otra fecha.',
+          type: hasAvailableSlots ? 'success' : 'warning',
+          duration: 4000
+        });
 
-          // Si no hay datos, mostrar todos los slots como no disponibles
-          const defaultSlots = timeSlots.map(slot => ({
+        console.log("Estado actualizado correctamente");
+      } catch (apiError) {
+        clearTimeout(timeoutId);
+        console.error("Error en petición API:", apiError);
+
+        // Determinar si fue un error de timeout
+        const isTimeout = apiError.name === 'AbortError';
+        console.log(`Error de tipo timeout? ${isTimeout}`);
+
+        // Siempre actualizar el estado para salir del loading
+        if (isMounted.current) {
+          // Datos de respaldo en caso de error
+          const fallbackSlots = timeSlots.map(slot => ({
             ...slot,
             available: false,
             doctorAvailable: false,
             hasExistingAppointment: false
           }));
 
-          setAvailableSlots(defaultSlots);
+          setAvailableSlots(fallbackSlots);
+          setLoading(false);
 
           setToast({
-            message: 'No hay horarios configurados para esta fecha. Por favor, seleccione otra fecha.',
-            type: 'warning',
-            duration: 3000
+            message: isTimeout
+              ? 'La solicitud está tomando demasiado tiempo. Por favor, intente más tarde.'
+              : 'Error al cargar horarios. Por favor, intente nuevamente.',
+            type: 'error',
+            duration: 5000
           });
         }
-      } catch (apiError) {
-        console.error('Error en la llamada a la API:', apiError);
+      }
+    } catch (error) {
+      console.error("Error general en fetchAvailableSlots:", error);
 
-        // Datos de respaldo en caso de error
-        const fallbackSlots = timeSlots.map(slot => ({
+      if (isMounted.current) {
+        setAvailableSlots(timeSlots.map(slot => ({
           ...slot,
           available: false,
           doctorAvailable: false,
           hasExistingAppointment: false
-        }));
-
-        setAvailableSlots(fallbackSlots);
+        })));
+        setLoading(false);
 
         setToast({
-          message: 'Error al cargar horarios. Por favor, intente nuevamente o seleccione otra fecha.',
+          message: 'Error inesperado al cargar horarios. Por favor, intente nuevamente.',
           type: 'error',
           duration: 5000
         });
-      } finally {
-        clearTimeout(timeoutId);
-      }
-    } catch (error) {
-      console.error('Error general al obtener slots disponibles:', error);
-
-      // Verificar si el componente sigue montado antes de actualizar el estado
-      if (!isMounted.current) return;
-
-      // En caso de error, mostrar todas las horas como no disponibles
-      const fallbackSlots = timeSlots.map(slot => ({
-        ...slot,
-        available: false,
-        doctorAvailable: false,
-        hasExistingAppointment: false
-      }));
-
-      setAvailableSlots(fallbackSlots);
-
-      setToast({
-        message: 'Error al cargar horarios. Por favor, intente nuevamente.',
-        type: 'error',
-        duration: 5000
-      });
-    } finally {
-      // Siempre asegurarse de que setLoading(false) se ejecute
-      if (isMounted.current) {
-        setLoading(false);
-        console.log('Estado de carga completado');
       }
     }
   };
