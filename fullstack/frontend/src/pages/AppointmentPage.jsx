@@ -349,28 +349,45 @@ const AppointmentPage = () => {
 
         console.log('Lista final de slots con disponibilidad:', availableSlotsList);
 
-        // Actualizar el estado con los slots disponibles
-        setAvailableSlots(availableSlotsList);
+        // Verificar si hay al menos un slot disponible
+        const hasAvailableSlots = availableSlotsList.some(slot => slot.available);
 
-        // Mostrar mensaje informativo
-        setToast({
-          message: 'Mostrando horarios disponibles basados en datos reales de la base de datos.',
-          type: 'success',
-          duration: 3000
-        });
+        if (hasAvailableSlots) {
+          console.log('Hay slots disponibles para esta fecha');
+          // Actualizar el estado con los slots disponibles
+          setAvailableSlots(availableSlotsList);
+
+          // Mostrar mensaje informativo
+          setToast({
+            message: 'Mostrando horarios disponibles basados en datos reales de la base de datos.',
+            type: 'success',
+            duration: 3000
+          });
+        } else {
+          console.log('No hay slots disponibles para esta fecha');
+          // Actualizar el estado con los slots no disponibles
+          setAvailableSlots(availableSlotsList);
+
+          // Mostrar mensaje informativo
+          setToast({
+            message: 'No hay horarios disponibles para la fecha seleccionada. Por favor, seleccione otra fecha.',
+            type: 'warning',
+            duration: 5000
+          });
+        }
       } else {
         console.log('No se recibieron datos válidos del servidor');
 
-        // Si no hay datos, mostrar todos los slots como disponibles
+        // Si no hay datos, mostrar todos los slots como no disponibles
         const defaultSlots = timeSlots.map(slot => ({
           ...slot,
-          available: true
+          available: false
         }));
 
         setAvailableSlots(defaultSlots);
 
         setToast({
-          message: 'No se encontraron datos de disponibilidad. Mostrando todos los horarios como disponibles.',
+          message: 'No hay horarios configurados para esta fecha. Por favor, seleccione otra fecha.',
           type: 'warning',
           duration: 3000
         });
@@ -381,16 +398,16 @@ const AppointmentPage = () => {
       // Verificar si el componente sigue montado antes de actualizar el estado
       if (!isMounted.current) return;
 
-      // En caso de error, mostrar todas las horas como disponibles
+      // En caso de error, mostrar todas las horas como no disponibles
       const fallbackSlots = timeSlots.map(slot => ({
         ...slot,
-        available: true
+        available: false
       }));
 
       setAvailableSlots(fallbackSlots);
 
       setToast({
-        message: 'Error al cargar horarios. Mostrando todos los horarios como disponibles.',
+        message: 'Error al cargar horarios. Por favor, intente nuevamente o seleccione otra fecha.',
         type: 'error',
         duration: 5000
       });
@@ -589,53 +606,74 @@ const AppointmentPage = () => {
                     <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                    {availableSlots.length > 0 ? (
-                      availableSlots.map((slot) => (
-                        <button
-                          key={slot.id}
-                          onClick={() => slot.available && handleSlotSelect(slot.id)}
-                          disabled={!slot.available}
-                          className={`p-4 border rounded-lg text-center transition-colors ${
-                            selectedSlot === slot.id
-                              ? 'border-primary-dark bg-primary-light/20 border-2'
-                              : slot.available
-                                ? 'border-gray-300 hover:bg-gray-50'
-                                : 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
-                          }`}
-                        >
-                          <p className="text-lg font-semibold">{slot.time}</p>
-                          {!slot.available && (
-                            <p className="text-sm text-red-500 mt-1">Reservado</p>
-                          )}
-                        </button>
-                      ))
+                  <div>
+                    {/* Verificar si hay al menos un slot disponible */}
+                    {availableSlots.length > 0 && availableSlots.some(slot => slot.available) ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                        {availableSlots.map((slot) => (
+                          <button
+                            key={slot.id}
+                            onClick={() => slot.available && handleSlotSelect(slot.id)}
+                            disabled={!slot.available}
+                            className={`p-4 border rounded-lg text-center transition-colors ${
+                              selectedSlot === slot.id
+                                ? 'border-primary-dark bg-primary-light/20 border-2'
+                                : slot.available
+                                  ? 'border-gray-300 hover:bg-gray-50'
+                                  : 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+                            }`}
+                          >
+                            <p className="text-lg font-semibold">{slot.time}</p>
+                            {!slot.available && (
+                              <p className="text-sm text-red-500 mt-1">Reservado</p>
+                            )}
+                          </button>
+                        ))}
+                      </div>
                     ) : (
-                      <p className="col-span-full text-center py-8 text-gray-500">
-                        No hay horarios disponibles para la fecha seleccionada.
-                      </p>
+                      <div className="text-center py-8 bg-yellow-50 rounded-lg border border-yellow-200 p-6">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-yellow-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <p className="text-lg font-semibold text-gray-700 mb-2">
+                          No hay horarios disponibles para esta fecha
+                        </p>
+                        <p className="text-gray-600 mb-4">
+                          El doctor no tiene horas disponibles para la fecha seleccionada. Por favor, seleccione otra fecha del calendario.
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="medium"
+                          onClick={prevStep}
+                        >
+                          Volver al calendario
+                        </Button>
+                      </div>
                     )}
                   </div>
                 )}
 
-                <div className="mt-8 flex justify-between">
-                  <Button
-                    variant="outline"
-                    size="large"
-                    onClick={prevStep}
-                  >
-                    Volver
-                  </Button>
+                {/* Solo mostrar los botones de navegación si hay slots disponibles */}
+                {!loading && availableSlots.some(slot => slot.available) && (
+                  <div className="mt-8 flex justify-between">
+                    <Button
+                      variant="outline"
+                      size="large"
+                      onClick={prevStep}
+                    >
+                      Volver
+                    </Button>
 
-                  <Button
-                    variant="primary"
-                    size="large"
-                    onClick={nextStep}
-                    disabled={!selectedSlot}
-                  >
-                    Continuar
-                  </Button>
-                </div>
+                    <Button
+                      variant="primary"
+                      size="large"
+                      onClick={nextStep}
+                      disabled={!selectedSlot}
+                    >
+                      Continuar
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
 
