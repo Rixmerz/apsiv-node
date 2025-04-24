@@ -8,6 +8,7 @@ import Footer from '../components/common/Footer';
 import Button from '../components/common/Button';
 import Toast from '../components/common/Toast';
 import { useAuth } from '../hooks/useAuth';
+import { normalizeSlotId, denormalizeSlotId } from '../utils/slotUtils';
 
 const AppointmentPage = () => {
   const { user } = useAuth();
@@ -197,6 +198,10 @@ const AppointmentPage = () => {
       // Para demo, usamos el primer doctor disponible (ID 1)
       const doctorId = 1;
 
+      // Normalizar el ID del slot para el backend
+      const backendSlotId = normalizeSlotId(selectedSlot);
+      console.log('ID del slot normalizado para backend:', backendSlotId);
+
       // Combinar fecha y hora seleccionada
       const timeSlotInfo = timeSlots.find(slot => slot.id === selectedSlot);
       const timeString = timeSlotInfo?.time || '09:00 - 10:00';
@@ -338,11 +343,14 @@ const AppointmentPage = () => {
 
           // Mapear los slots disponibles a la estructura que espera el frontend
           const availableSlotsList = timeSlots.map(slot => {
+            // Normalizar el ID del slot para buscar en los datos del backend
+            const backendSlotId = normalizeSlotId(slot.id);
+
             // Un slot está disponible si:
             // 1. El doctor lo ha marcado como disponible (doctorSlotsData)
             // 2. No hay cita programada en ese horario (slotsData)
-            const isDoctorAvailable = doctorSlotsData[slot.id] === true;
-            const isSlotFree = slotsData[slot.id] === true;
+            const isDoctorAvailable = doctorSlotsData[backendSlotId] === true;
+            const isSlotFree = slotsData[backendSlotId] === true;
 
             return {
               ...slot,

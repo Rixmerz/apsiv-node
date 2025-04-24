@@ -337,14 +337,18 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
       let slotId;
 
       // Mapear la hora a un ID de slot
-      if (hour >= 8 && hour < 10) slotId = 'Bloque_1';
-      else if (hour >= 10 && hour < 12) slotId = 'Bloque_2';
-      else if (hour >= 12 && hour < 14) slotId = 'Bloque_3';
-      else if (hour >= 14 && hour < 16) slotId = 'Bloque_4';
-      else if (hour >= 16 && hour < 18) slotId = 'Bloque_5';
-      else if (hour >= 18 && hour < 20) slotId = 'Bloque_6';
-      else if (hour >= 20 && hour < 22) slotId = 'Bloque_7';
-      else slotId = 'Bloque_8';
+      let rawSlotId;
+      if (hour >= 8 && hour < 10) rawSlotId = 'Bloque_1';
+      else if (hour >= 10 && hour < 12) rawSlotId = 'Bloque_2';
+      else if (hour >= 12 && hour < 14) rawSlotId = 'Bloque_3';
+      else if (hour >= 14 && hour < 16) rawSlotId = 'Bloque_4';
+      else if (hour >= 16 && hour < 18) rawSlotId = 'Bloque_5';
+      else if (hour >= 18 && hour < 20) rawSlotId = 'Bloque_6';
+      else if (hour >= 20 && hour < 22) rawSlotId = 'Bloque_7';
+      else rawSlotId = 'Bloque_8';
+
+      // Asegurarse de que el ID del slot esté normalizado
+      slotId = normalizeSlotId(rawSlotId);
 
       // Marcar el slot como no disponible
       if (slotId) {

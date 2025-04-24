@@ -7,6 +7,7 @@ import Navbar from '../components/common/Navbar';
 import Footer from '../components/common/Footer';
 import Button from '../components/common/Button';
 import Toast from '../components/common/Toast';
+import { normalizeSlotId, denormalizeSlotId } from '../utils/slotUtils';
 
 const DoctorScheduleManagementPage = () => {
   const { user } = useAuth();
@@ -37,28 +38,7 @@ const DoctorScheduleManagementPage = () => {
     });
   }, []);
 
-  // Función para convertir IDs de slots a un formato consistente
-  const normalizeSlotId = (slotId) => {
-    // Asegurarse de que el ID del slot tenga el formato correcto (slot_X)
-    if (!slotId) return null;
-
-    // Si ya tiene el formato correcto, devolverlo tal cual
-    if (slotId.startsWith('slot_')) return slotId;
-
-    // Si es Bloque_X, convertirlo a slot_X
-    if (slotId.startsWith('Bloque_')) {
-      const number = slotId.replace('Bloque_', '');
-      return `slot_${number}`;
-    }
-
-    // Si es un número, convertirlo a slot_X
-    if (!isNaN(slotId)) {
-      return `slot_${slotId}`;
-    }
-
-    // Si no se puede convertir, devolver el original
-    return slotId;
-  };
+  // Nota: Ahora usamos las funciones de normalización importadas de utils/slotUtils.js
 
   // Generar los días de la semana actual
   // Usamos useMemo para evitar recalcular en cada renderizado
@@ -104,7 +84,23 @@ const DoctorScheduleManagementPage = () => {
 
           if (response.data && Object.keys(response.data).length > 0) {
             console.log('Horarios obtenidos del servidor');
-            setAvailableSlots(response.data);
+
+            // Convertir los IDs de slots del formato del backend al formato del frontend
+            const convertedSlots = {};
+
+            // Recorrer todas las fechas
+            Object.keys(response.data).forEach(dateStr => {
+              convertedSlots[dateStr] = {};
+
+              // Recorrer todos los slots de cada fecha
+              Object.keys(response.data[dateStr]).forEach(slotId => {
+                // Convertir el ID del slot de Bloque_X a slot_X
+                const frontendSlotId = denormalizeSlotId(slotId);
+                convertedSlots[dateStr][frontendSlotId] = response.data[dateStr][slotId];
+              });
+            });
+
+            setAvailableSlots(convertedSlots);
             setInitialDataLoaded(true);
             setLoading(false);
             return;
@@ -256,9 +252,25 @@ const DoctorScheduleManagementPage = () => {
       const doctorId = user.doctorProfile.id;
 
       try {
+        // Convertir los IDs de slots del formato del frontend al formato del backend
+        const convertedSlots = {};
+
+        // Recorrer todas las fechas
+        Object.keys(availableSlots).forEach(dateStr => {
+          convertedSlots[dateStr] = {};
+
+          // Recorrer todos los slots de cada fecha
+          Object.keys(availableSlots[dateStr]).forEach(slotId => {
+            // Convertir el ID del slot de slot_X a Bloque_X
+            const backendSlotId = normalizeSlotId(slotId);
+            convertedSlots[dateStr][backendSlotId] = availableSlots[dateStr][slotId];
+          });
+        });
+
         // Intentar hacer la llamada a la API real
         console.log(`Enviando datos al servidor: /api/doctor/schedule/${doctorId}`);
-        const response = await api.post(`/api/doctor/schedule/${doctorId}`, { availableSlots });
+        console.log('Datos convertidos para el backend:', convertedSlots);
+        const response = await api.post(`/api/doctor/schedule/${doctorId}`, { availableSlots: convertedSlots });
         console.log('Respuesta del servidor:', response.data);
 
         // Guardar también en localStorage como respaldo
