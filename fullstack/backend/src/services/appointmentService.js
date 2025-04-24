@@ -112,7 +112,7 @@ const getPatientAppointments = async (patientId) => {
 const createAppointment = async (appointmentData) => {
   try {
     const { date, notes, doctorId, patientId, status = 'scheduled' } = appointmentData;
-    
+
     const appointment = await prisma.appointment.create({
       data: {
         date: new Date(date),
@@ -150,7 +150,7 @@ const createAppointment = async (appointmentData) => {
         }
       }
     });
-    
+
     return appointment;
   } catch (error) {
     throw new Error(`Error creating appointment: ${error.message}`);
@@ -166,7 +166,7 @@ const createAppointment = async (appointmentData) => {
 const updateAppointment = async (id, appointmentData) => {
   try {
     const { date, notes, status } = appointmentData;
-    
+
     const appointment = await prisma.appointment.update({
       where: {
         id: parseInt(id)
@@ -201,7 +201,7 @@ const updateAppointment = async (id, appointmentData) => {
         }
       }
     });
-    
+
     return appointment;
   } catch (error) {
     throw new Error(`Error updating appointment: ${error.message}`);
@@ -220,10 +220,113 @@ const deleteAppointment = async (id) => {
         id: parseInt(id)
       }
     });
-    
+
     return appointment;
   } catch (error) {
     throw new Error(`Error deleting appointment: ${error.message}`);
+  }
+};
+
+/**
+ * Get available slots for a specific date and doctor
+ * @param {number} doctorId - Doctor ID
+ * @param {string} dateStr - Date string in YYYY-MM-DD format
+ * @returns {Promise<Object>} Available slots
+ */
+const getAvailableSlotsForDate = async (doctorId, dateStr) => {
+  try {
+    // Validar el formato de la fecha
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) {
+      throw new Error(`Invalid date format: ${dateStr}`);
+    }
+
+    // Convertir doctorId a entero
+    const doctorIdInt = parseInt(doctorId);
+    if (isNaN(doctorIdInt)) {
+      throw new Error(`Invalid doctor ID: ${doctorId}`);
+    }
+
+    // Verificar que el doctor exista
+    const doctor = await prisma.doctor.findUnique({
+      where: {
+        id: doctorIdInt
+      }
+    });
+
+    if (!doctor) {
+      throw new Error(`Doctor not found with ID: ${doctorIdInt}`);
+    }
+
+    // Obtener la configuración del doctor para esta fecha
+    const doctorSchedule = await prisma.doctorSchedule.findMany({
+      where: {
+        doctorId: doctorIdInt,
+        date: {
+          gte: new Date(dateStr + 'T00:00:00'),
+          lt: new Date(dateStr + 'T23:59:59')
+        }
+      }
+    });
+
+    // Obtener las citas existentes para esta fecha
+    const existingAppointments = await prisma.appointment.findMany({
+      where: {
+        doctorId: doctorIdInt,
+        date: {
+          gte: new Date(dateStr + 'T00:00:00'),
+          lt: new Date(dateStr + 'T23:59:59')
+        }
+      }
+    });
+
+    // Crear un mapa de slots con su disponibilidad
+    const availableSlots = {};
+
+    // Primero, marcar todos los slots como disponibles por defecto
+    const defaultSlots = [
+      'Bloque_1', 'Bloque_2', 'Bloque_3', 'Bloque_4',
+      'Bloque_5', 'Bloque_6', 'Bloque_7', 'Bloque_8'
+    ];
+
+    defaultSlots.forEach(slotId => {
+      availableSlots[slotId] = true;
+    });
+
+    // Luego, aplicar la configuración del doctor
+    doctorSchedule.forEach(schedule => {
+      availableSlots[schedule.slotId] = schedule.available;
+    });
+
+    // Finalmente, marcar como no disponibles los slots que ya tienen citas
+    existingAppointments.forEach(appointment => {
+      // Extraer el ID del slot de la fecha de la cita
+      // Asumimos que el slotId está codificado en la hora de la cita
+      const hour = appointment.date.getHours();
+      let slotId;
+
+      // Mapear la hora a un ID de slot (esto debe coincidir con tu lógica de frontend)
+      if (hour >= 8 && hour < 10) slotId = 'Bloque_1';
+      else if (hour >= 10 && hour < 12) slotId = 'Bloque_2';
+      else if (hour >= 12 && hour < 14) slotId = 'Bloque_3';
+      else if (hour >= 14 && hour < 16) slotId = 'Bloque_4';
+      else if (hour >= 16 && hour < 18) slotId = 'Bloque_5';
+      else if (hour >= 18 && hour < 20) slotId = 'Bloque_6';
+      else if (hour >= 20 && hour < 22) slotId = 'Bloque_7';
+      else slotId = 'Bloque_8';
+
+      // Marcar el slot como no disponible
+      if (slotId) {
+        availableSlots[slotId] = false;
+      }
+    });
+
+    return {
+      date: dateStr,
+      slots: availableSlots
+    };
+  } catch (error) {
+    throw new Error(`Error getting available slots: ${error.message}`);
   }
 };
 
@@ -233,5 +336,6 @@ module.exports = {
   getPatientAppointments,
   createAppointment,
   updateAppointment,
-  deleteAppointment
+  deleteAppointment,
+  getAvailableSlotsForDate
 };

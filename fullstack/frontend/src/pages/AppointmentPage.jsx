@@ -334,83 +334,54 @@ const AppointmentPage = () => {
           // En un entorno real, se obtendría de la selección del usuario
           const doctorId = 1;
 
-          // Intentar obtener los horarios del doctor desde el backend
-          let doctorUnavailableSlots = [];
-          let messageType = 'info';
-          let messageText = '';
+          // Consultar directamente el endpoint de slots disponibles
+          console.log(`Consultando API para slots disponibles del doctor ${doctorId} en fecha ${dateStr}`);
+          const response = await api.get(`/api/appointments/available-slots/${doctorId}/${dateStr}`);
+          console.log('Respuesta del servidor:', response.data);
 
-          try {
-            console.log(`Consultando API para horarios del doctor ${doctorId}`);
-            const response = await api.get(`/api/doctor/schedule/${doctorId}`);
-            console.log('Respuesta del servidor:', response.data);
+          if (response.data && response.data.slots) {
+            // Convertir el objeto de slots a un array para el frontend
+            const slotsData = response.data.slots;
 
-            if (response.data && Object.keys(response.data).length > 0) {
-              // Si hay datos para esta fecha, los usamos
-              if (response.data[dateStr]) {
-                console.log('Horarios obtenidos del servidor para esta fecha');
+            // Mapear los slots disponibles a la estructura que espera el frontend
+            const availableSlotsList = timeSlots.map(slot => {
+              const slotId = normalizeSlotId(slot.id);
+              const isAvailable = slotsData[slot.id] === true;
 
-                // Encontrar los slots que el doctor ha marcado como no disponibles
-                doctorUnavailableSlots = Object.keys(response.data[dateStr])
-                  .filter(slotId => !response.data[dateStr][slotId])
-                  .map(slotId => normalizeSlotId(slotId)); // Normalizar los IDs
+              return {
+                ...slot,
+                available: isAvailable
+              };
+            });
 
-                console.log('Slots que el doctor ha marcado como no disponibles:', doctorUnavailableSlots);
-                messageText = 'Mostrando horarios disponibles basados en la configuración del doctor.';
-              } else {
-                console.log('No hay datos en el servidor para esta fecha');
-                messageText = 'No hay configuración de horarios para esta fecha. Mostrando todos los horarios como disponibles.';
-                messageType = 'warning';
-              }
-            } else {
-              console.log('No hay datos en el servidor');
-              messageText = 'El doctor no ha configurado sus horarios. Mostrando todos los horarios como disponibles.';
-              messageType = 'warning';
-            }
-          } catch (apiError) {
-            console.error('Error al obtener horarios del servidor:', apiError);
-            messageText = 'Error al consultar horarios del doctor. Mostrando todos los horarios como disponibles.';
-            messageType = 'error';
-          }
+            console.log('Lista final de slots con disponibilidad:', availableSlotsList);
 
-          // Si no hay datos para esta fecha, mostrar todos los horarios como disponibles
-          if (doctorUnavailableSlots.length === 0) {
-            console.log('No hay slots no disponibles, todos los horarios estarán disponibles');
-          }
+            // Actualizar el estado con los slots disponibles
+            setAvailableSlots(availableSlotsList);
 
-          // Simular slots reservados por otros pacientes
-          // En un entorno real, esto vendría de una consulta a la base de datos de citas
-          const bookedSlots = ['Bloque_3', 'Bloque_7'].map(slotId => normalizeSlotId(slotId));
-          console.log('Slots reservados por otros pacientes:', bookedSlots);
+            // Mostrar mensaje informativo
+            setToast({
+              message: 'Mostrando horarios disponibles basados en datos reales de la base de datos.',
+              type: 'success',
+              duration: 3000
+            });
+          } else {
+            console.log('No se recibieron datos válidos del servidor');
 
-          // Filtrar las horas que el doctor ha marcado como no disponibles
-          const filteredSlots = timeSlots.filter(slot => {
-            const normalizedSlotId = normalizeSlotId(slot.id);
-            return !doctorUnavailableSlots.includes(normalizedSlotId);
-          });
-
-          console.log('Slots filtrados (después de quitar los no disponibles del doctor):',
-                    filteredSlots.map(slot => slot.id));
-
-          // Marcar las horas reservadas como no disponibles
-          const availableSlotsList = filteredSlots.map(slot => {
-            const normalizedSlotId = normalizeSlotId(slot.id);
-            return {
+            // Si no hay datos, mostrar todos los slots como disponibles
+            const defaultSlots = timeSlots.map(slot => ({
               ...slot,
-              available: !bookedSlots.includes(normalizedSlotId)
-            };
-          });
+              available: true
+            }));
 
-          console.log('Lista final de slots con disponibilidad:', availableSlotsList);
+            setAvailableSlots(defaultSlots);
 
-          // Actualizar el estado con los slots disponibles
-          setAvailableSlots(availableSlotsList);
-
-          // Mostrar mensaje informativo
-          setToast({
-            message: messageText,
-            type: messageType,
-            duration: 3000
-          });
+            setToast({
+              message: 'No se encontraron datos de disponibilidad. Mostrando todos los horarios como disponibles.',
+              type: 'warning',
+              duration: 3000
+            });
+          }
         } catch (error) {
           console.error('Error al generar horarios disponibles:', error);
 

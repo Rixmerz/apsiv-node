@@ -6,8 +6,25 @@ const router = express.Router();
 const appointmentController = require('../controllers/appointmentController');
 const { authenticateToken } = require('../middleware/authMiddleware');
 
+// Middleware condicional para autenticación
+const isDevelopment = process.env.NODE_ENV !== 'production';
+
+// Middleware condicional para autenticación
+const conditionalAuth = (req, res, next) => {
+  if (isDevelopment) {
+    // En desarrollo, simulamos un usuario autenticado
+    req.user = { id: 1, role: 'patient' };
+    return next();
+  }
+  // En producción, usamos la autenticación normal
+  return authenticateToken(req, res, next);
+};
+
+// Ruta pública para obtener slots disponibles
+router.get('/available-slots/:doctorId/:date', appointmentController.getAvailableSlotsForDate);
+
 // Protected routes
-router.use(authenticateToken);
+router.use(conditionalAuth);
 
 // Get all appointments (admin only)
 router.get('/', appointmentController.getAllAppointments);

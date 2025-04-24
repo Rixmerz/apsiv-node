@@ -69,11 +69,30 @@ const deleteAppointment = async (req, res) => {
   }
 };
 
+// Get available slots for a specific date
+const getAvailableSlotsForDate = async (req, res) => {
+  try {
+    const { doctorId, date } = req.params;
+
+    if (!doctorId || !date) {
+      return res.status(400).json({ error: 'Doctor ID and date are required' });
+    }
+
+    console.log(`Getting available slots for doctor ${doctorId} on date ${date}`);
+    const availableSlots = await appointmentService.getAvailableSlotsForDate(doctorId, date);
+    res.status(200).json(availableSlots);
+  } catch (error) {
+    console.error('Error getting available slots:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
 module.exports = {
   getAllAppointments,
   getDoctorAppointments,
   getPatientAppointments,
   createAppointment,
   updateAppointment,
-  deleteAppointment
+  deleteAppointment,
+  getAvailableSlotsForDate
 };
