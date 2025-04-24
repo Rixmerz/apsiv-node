@@ -6,6 +6,7 @@ import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import AppointmentPage from './pages/AppointmentPage';
+import AppointmentConfirmationPage from './pages/AppointmentConfirmationPage';
 import DoctorSchedulePage from './pages/DoctorSchedulePage';
 import DoctorScheduleManagementPage from './pages/DoctorScheduleManagementPage';
 import AdminPatientsPage from './pages/AdminPatientsPage';
@@ -54,6 +55,12 @@ function App() {
       <Route path="/appointment" element={
         <ProtectedRoute patientOnly>
           <AppointmentPage />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/appointment/confirmation" element={
+        <ProtectedRoute patientOnly>
+          <AppointmentConfirmationPage />
         </ProtectedRoute>
       } />
 

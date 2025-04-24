@@ -272,14 +272,14 @@ const AppointmentPage = () => {
           notes: ''
         });
 
-        // Navigate to confirmation or appointments page after delay
+        // Navigate to confirmation page after delay
         setTimeout(() => {
           navigate('/appointment/confirmation', {
             state: {
               appointment: response.data.appointment
             }
           });
-        }, 2000);
+        }, 1500);
       }
     } catch (error) {
       console.error('Error booking appointment:', error);
