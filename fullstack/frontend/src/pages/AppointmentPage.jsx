@@ -442,55 +442,77 @@ const AppointmentPage = () => {
     }
   };
 
-  // Efecto para cargar los horarios disponibles cuando cambia la fecha o el paso
+  // Mejora del useEffect para evitar problemas de carga infinita
   useEffect(() => {
-    console.log('useEffect para cargar horas disponibles. Fecha:', selectedDate, 'Paso:', step);
+    console.log('useEffect para cargar horas disponibles activado');
+    console.log('Fecha:', selectedDate, 'Paso:', step);
 
     // Solo cargar horarios cuando estamos en el paso 3 y hay una fecha seleccionada
     if (selectedDate && step === 3) {
-      console.log('Cargando horas disponibles para la fecha:', selectedDate);
+      console.log('Condiciones cumplidas para cargar horarios');
+
+      // Activar loader inmediatamente
       setLoading(true);
 
-      // Inicializar con valores por defecto
-      const defaultSlots = timeSlots.map(slot => ({
+      // Establecer slots como no disponibles por defecto
+      setAvailableSlots(timeSlots.map(slot => ({
         ...slot,
         available: false,
         doctorAvailable: false,
         hasExistingAppointment: false
-      }));
-      setAvailableSlots(defaultSlots);
+      })));
 
-      // Usar un flag para controlar si ya se ha manejado la respuesta
+      // Control de timeouts y clean-up
+      let fetchTimeoutId;
+      let safetyTimeoutId;
+
+      // Flag para controlar si ya se ha resuelto la petición
       let isHandled = false;
 
-      // Llamar a la función de carga con un pequeño retraso
-      const timerId = setTimeout(() => {
+      // Ejecutar la carga con un pequeño retraso para permitir renderizado del UI
+      fetchTimeoutId = setTimeout(() => {
+        console.log('Iniciando fetchAvailableSlots después de delay');
+
+        // Solo ejecutar si no se ha resuelto aún y el componente está montado
         if (!isHandled && isMounted.current) {
           fetchAvailableSlots(selectedDate)
-            .finally(() => {
+            .then(() => {
+              console.log('fetchAvailableSlots completado con éxito');
               isHandled = true;
+            })
+            .catch(error => {
+              console.error('Error en fetchAvailableSlots:', error);
+              isHandled = true;
+              if (isMounted.current) {
+                setLoading(false);
+              }
             });
         }
       }, 300);
 
-      // Timeout de seguridad para evitar carga infinita
-      const securityTimeoutId = setTimeout(() => {
+      // Timeout de seguridad para garantizar que el loading termine
+      safetyTimeoutId = setTimeout(() => {
+        console.log('Activando timeout de seguridad (15s)');
+
+        // Si aún no se ha resuelto la petición
         if (!isHandled && isMounted.current) {
-          console.log('Timeout de seguridad activado, completando carga');
-          setLoading(false);
+          console.log('La carga de horarios no se completó a tiempo');
           isHandled = true;
+          setLoading(false);
 
           setToast({
-            message: 'La carga de horarios está tomando más tiempo de lo esperado. Por favor, intente nuevamente.',
+            message: 'La carga de horarios está tomando demasiado tiempo. Por favor, intente otra fecha o más tarde.',
             type: 'warning',
             duration: 5000
           });
         }
-      }, 15000); // 15 segundos de timeout de seguridad
+      }, 15000); // 15 segundos máximo
 
+      // Limpieza al desmontar o cambiar dependencias
       return () => {
-        clearTimeout(timerId);
-        clearTimeout(securityTimeoutId);
+        console.log('Limpiando efecto de carga de horarios');
+        clearTimeout(fetchTimeoutId);
+        clearTimeout(safetyTimeoutId);
       };
     }
   }, [selectedDate, step]);
