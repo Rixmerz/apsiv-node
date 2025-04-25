@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import api from '../api/axios';
-import { format, startOfWeek, addDays, isSameDay, addWeeks, subWeeks } from 'date-fns';
+import { format, addDays, isSameDay, addWeeks, subWeeks } from 'date-fns';
 import { es } from 'date-fns/locale';
 import Navbar from '../components/common/Navbar';
 import Footer from '../components/common/Footer';
@@ -16,7 +16,18 @@ const DoctorScheduleManagementPage = () => {
 
   // Estado para la semana actual
   // Usamos el 24 de abril de 2025 como fecha base (según los logs)
-  const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(2025, 3, 24), { weekStartsOn: 1 }));
+  // El 24 de abril de 2025 es un jueves (día 4)
+  // Calculamos el inicio de la semana (lunes) para esta fecha
+  const baseDate = new Date(2025, 3, 24); // 24 de abril de 2025
+  const [currentWeek, setCurrentWeek] = useState(() => {
+    // Retroceder hasta el lunes de la semana actual
+    const monday = new Date(baseDate);
+    const dayOfWeek = baseDate.getDay(); // 0 = domingo, 1 = lunes, ..., 6 = sábado
+    // Si es domingo (0), retroceder 6 días, si es lunes (1), retroceder 0 días, etc.
+    const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    monday.setDate(baseDate.getDate() - daysToSubtract);
+    return monday;
+  });
 
   // Estado para los horarios disponibles
   const [availableSlots, setAvailableSlots] = useState({});
@@ -49,18 +60,22 @@ const DoctorScheduleManagementPage = () => {
     const startDate = new Date(currentWeek);
 
     console.log(`Generando días para la semana que comienza el ${format(startDate, 'yyyy-MM-dd')}`);
+    console.log(`Día de la semana del inicio: ${startDate.getDay()}`); // Debería ser 1 (lunes)
 
     return Array.from({ length: 7 }, (_, i) => {
       const day = addDays(startDate, i);
       const dateStr = format(day, 'yyyy-MM-dd');
+      const dayOfWeek = day.getDay(); // 0 = domingo, 1 = lunes, ..., 6 = sábado
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Sábado o domingo
 
-      console.log(`Día ${i+1} de la semana: ${dateStr}`);
+      console.log(`Día ${i+1} de la semana: ${dateStr}, día de la semana: ${dayOfWeek}, ¿es fin de semana? ${isWeekend}`);
 
       return {
         date: day,
         dayName: format(day, 'EEEE', { locale: es }),
         dayNumber: format(day, 'd', { locale: es }),
-        month: format(day, 'MMMM', { locale: es })
+        month: format(day, 'MMMM', { locale: es }),
+        isWeekend: isWeekend
       };
     });
   }, [currentWeek]);
@@ -195,7 +210,15 @@ const DoctorScheduleManagementPage = () => {
 
   // Navegar a la semana de referencia (24 de abril de 2025)
   const goToCurrentWeek = () => {
-    setCurrentWeek(startOfWeek(new Date(2025, 3, 24), { weekStartsOn: 1 }));
+    // Calcular el inicio de la semana (lunes) para la fecha base
+    const referenceDate = new Date(2025, 3, 24); // 24 de abril de 2025
+    const monday = new Date(referenceDate);
+    const dayOfWeek = referenceDate.getDay(); // 0 = domingo, 1 = lunes, ..., 6 = sábado
+    // Si es domingo (0), retroceder 6 días, si es lunes (1), retroceder 0 días, etc.
+    const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    monday.setDate(referenceDate.getDate() - daysToSubtract);
+
+    setCurrentWeek(monday);
     // Indicar que se deben actualizar los datos
     setShouldUpdateData(prev => !prev);
   };
@@ -361,11 +384,16 @@ const DoctorScheduleManagementPage = () => {
                           <th
                             key={index}
                             className={`p-3 border text-center ${
-                              isSameDay(day.date, new Date()) ? 'bg-primary-light/20' : 'bg-gray-100'
+                              day.isWeekend
+                                ? 'bg-gray-200 text-gray-500'
+                                : isSameDay(day.date, new Date(2025, 3, 24))
+                                  ? 'bg-primary-light/20'
+                                  : 'bg-gray-100'
                             }`}
                           >
                             <div className="font-bold capitalize">{day.dayName}</div>
                             <div>{day.dayNumber} de {day.month}</div>
+                            {day.isWeekend && <div className="text-xs text-gray-500">Fin de semana</div>}
                           </th>
                         ))}
                       </tr>
@@ -402,6 +430,18 @@ const DoctorScheduleManagementPage = () => {
                               console.log(`- ¿Está disponible? ${isAvailable}`);
                             }
 
+                            // Si es fin de semana, mostrar como no disponible
+                            if (day.isWeekend) {
+                              return (
+                                <td
+                                  key={dayIndex}
+                                  className="p-3 border text-center bg-gray-200"
+                                >
+                                  <div className="text-gray-500">Fin de semana</div>
+                                </td>
+                              );
+                            }
+
                             // Si la fecha no existe en los datos, mostrar un mensaje
                             if (!dateExists) {
                               return (
@@ -418,7 +458,7 @@ const DoctorScheduleManagementPage = () => {
                               <td
                                 key={dayIndex}
                                 className={`p-2 border relative h-16 ${
-                                  isSameDay(day.date, new Date()) ? 'bg-primary-light/10' : ''
+                                  isSameDay(day.date, new Date(2025, 3, 24)) ? 'bg-primary-light/10' : ''
                                 }`}
                               >
                                 <button
