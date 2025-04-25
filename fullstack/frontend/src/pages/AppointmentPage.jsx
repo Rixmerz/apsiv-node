@@ -15,8 +15,9 @@ const AppointmentPage = () => {
   const navigate = useNavigate();
 
   const [step, setStep] = useState(1);
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  // Usar fechas de 2025 para coincidir con los datos del servidor
+  const [selectedMonth, setSelectedMonth] = useState(3); // Abril (0-indexed)
+  const [selectedYear, setSelectedYear] = useState(2025);
   const [selectedDate, setSelectedDate] = useState(null);
   const [availableSlots, setAvailableSlots] = useState([]);
   const [selectedSlot, setSelectedSlot] = useState(null);
@@ -27,13 +28,14 @@ const AppointmentPage = () => {
     notes: ''
   });
 
-  // Meses disponibles (actual y siguientes 2 meses)
+  // Meses disponibles (abril, mayo y junio de 2025)
   const getAvailableMonths = () => {
     const months = [];
-    const today = new Date();
+    const baseYear = 2025;
 
-    for (let i = 0; i < 3; i++) {
-      const date = new Date(today.getFullYear(), today.getMonth() + i, 1);
+    // Empezar desde abril (mes 3, 0-indexed) hasta junio (mes 5)
+    for (let i = 3; i <= 5; i++) {
+      const date = new Date(baseYear, i, 1);
       months.push({
         month: date.getMonth(),
         year: date.getFullYear(),
@@ -58,10 +60,9 @@ const AppointmentPage = () => {
     { id: 'slot_8', time: '17:00 - 18:00' }
   ];
 
-  // Available dates for the selected month (excluding weekends and past dates)
+  // Available dates for the selected month (excluding weekends)
   const getAvailableDates = () => {
     const dates = [];
-    const today = new Date();
 
     // First day of selected month
     const firstDay = new Date(selectedYear, selectedMonth, 1);
@@ -69,17 +70,18 @@ const AppointmentPage = () => {
     // Last day of selected month
     const lastDay = new Date(selectedYear, selectedMonth + 1, 0);
 
-    // Start from today if current month, otherwise start from first day of month
-    const startDate = (selectedMonth === today.getMonth() && selectedYear === today.getFullYear())
-      ? today
-      : firstDay;
-
-    for (let d = new Date(startDate); d <= lastDay; d.setDate(d.getDate() + 1)) {
+    // Siempre empezar desde el primer día del mes (estamos en 2025)
+    for (let d = new Date(firstDay); d <= lastDay; d.setDate(d.getDate() + 1)) {
       // Skip weekends (0 is Sunday, 6 is Saturday)
       if (d.getDay() !== 0 && d.getDay() !== 6) {
-        dates.push(new Date(d));
+        // Crear una nueva instancia de Date para evitar referencias
+        dates.push(new Date(d.getTime()));
       }
     }
+
+    // Mostrar las fechas disponibles en la consola para depuración
+    console.log('Fechas disponibles para el mes seleccionado:',
+      dates.map(d => format(d, 'yyyy-MM-dd')));
 
     return dates;
   };
@@ -114,13 +116,11 @@ const AppointmentPage = () => {
     setSelectedDate(null); // Reset selected date when month changes
   };
 
-  // Preselect current month on component mount
+  // Preselect abril 2025 on component mount
   useEffect(() => {
-    // Current month is already set as default state
-    // This is just to ensure the calendar is properly initialized
-    const today = new Date();
-    setSelectedMonth(today.getMonth());
-    setSelectedYear(today.getFullYear());
+    // Abril 2025 ya está configurado como estado por defecto
+    // Este efecto es solo para asegurar que el calendario se inicialice correctamente
+    console.log('Inicializando calendario con abril 2025');
   }, []);
 
   const handleDateSelect = (date) => {
@@ -305,17 +305,27 @@ const AppointmentPage = () => {
 
   // Función para obtener los horarios disponibles (fuera del useEffect)
   const fetchAvailableSlots = async (dateObj) => {
-    if (!dateObj) return;
+    if (!dateObj) {
+      console.error("fetchAvailableSlots: No se proporcionó una fecha");
+      return;
+    }
 
     try {
       const dateStr = formatDateForApi(dateObj);
       console.log(`Iniciando fetchAvailableSlots para fecha ${dateStr}`);
+      console.log(`Fecha original: ${dateObj.toISOString()}`);
 
       // Usar un ID de doctor fijo para demo (ID 2 según la base de datos)
       const doctorId = 2;
 
       // Agregar logs detallados antes de la llamada API
-      console.log(`Preparando petición API: GET /api/appointments/available-slots/${doctorId}/${dateStr}`);
+      const apiUrl = `/api/appointments/available-slots/${doctorId}/${dateStr}`;
+      console.log(`Preparando petición API: GET ${apiUrl}`);
+      console.log(`Parámetros: doctorId=${doctorId}, date=${dateStr}`);
+
+      // Verificar token
+      const token = localStorage.getItem('token');
+      console.log(`Token disponible: ${!!token}`);
 
       // Crear un timeout para la petición
       const controller = new AbortController();
@@ -327,12 +337,16 @@ const AppointmentPage = () => {
       try {
         // Intentar hacer la petición con un timeout
         console.log("Ejecutando petición API...");
-        const response = await api.get(`/api/appointments/available-slots/${doctorId}/${dateStr}`, {
-          signal: controller.signal
+        const response = await api.get(apiUrl, {
+          signal: controller.signal,
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
         });
 
         clearTimeout(timeoutId);
         console.log("Petición completada exitosamente");
+        console.log("Status:", response.status);
         console.log("Datos recibidos:", response.data);
 
         if (!isMounted.current) {
