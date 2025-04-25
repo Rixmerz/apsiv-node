@@ -187,29 +187,29 @@ const createAppointment = async (appointmentData) => {
       normalizedSlotId = normalizeSlotId(slotId);
       console.log(`[Backend] Slot ID normalizado: ${normalizedSlotId}`);
     } else {
-      // Si no se proporciona un slotId, extraerlo de la hora de la cita
+      // If no slotId is provided, extract it from the appointment time
       const hour = appointmentDate.getHours();
       const slotIndex = hour - 7; // 8:00 -> 1, 9:00 -> 2, etc.
 
-      // Validar que el slotIndex esté en un rango válido (1-18)
+      // Validate that slotIndex is in a valid range (1-18)
       if (slotIndex < 1 || slotIndex > 18) {
-        console.error(`[Backend] Error: Hora de cita inválida (${hour}:00). Debe estar entre 8:00 y 25:00.`);
+        console.error(`[Backend] Error: Invalid appointment time (${hour}:00). Must be between 8:00 and 25:00.`);
         return {
           success: false,
-          error: `Hora de cita inválida (${hour}:00). Debe estar entre 8:00 y 25:00.`
+          error: `Invalid appointment time (${hour}:00). Must be between 8:00 and 25:00.`
         };
       }
 
-      normalizedSlotId = `Bloque_${slotIndex}`;
-      console.log(`[Backend] Slot ID calculado de la hora: ${normalizedSlotId}`);
+      normalizedSlotId = `block_${slotIndex}`;
+      console.log(`[Backend] Slot ID calculated from time: ${normalizedSlotId}`);
     }
 
-    // Validar que el normalizedSlotId tenga el formato correcto
-    if (!normalizedSlotId || !normalizedSlotId.match(/^Bloque_\d+$/)) {
-      console.error(`[Backend] Error: Formato de slot inválido: ${normalizedSlotId}`);
+    // Validate that normalizedSlotId has the correct format
+    if (!normalizedSlotId || (!normalizedSlotId.match(/^block_\d+$/) && !normalizedSlotId.match(/^Bloque_\d+$/))) {
+      console.error(`[Backend] Error: Invalid slot format: ${normalizedSlotId}`);
       return {
         success: false,
-        error: `Formato de slot inválido: ${normalizedSlotId}`
+        error: `Invalid slot format: ${normalizedSlotId}`
       };
     }
 
@@ -266,9 +266,22 @@ const createAppointment = async (appointmentData) => {
     // Si llegamos aquí, el slot está disponible, podemos crear la cita
     console.log(`[Backend] Creando cita para doctor ${doctorIdInt}, paciente ${patientIdInt}, fecha ${dateStr}, slot ${normalizedSlotId}`);
 
-    // Ajustar la hora de la cita según el slot
-    const slotNumber = parseInt(normalizedSlotId.replace('Bloque_', ''));
-    const appointmentHour = slotNumber + 7; // Bloque_1 -> 8:00, Bloque_2 -> 9:00, etc.
+    // Adjust the appointment time based on the slot
+    let slotNumber;
+    if (normalizedSlotId.startsWith('block_')) {
+      slotNumber = parseInt(normalizedSlotId.replace('block_', ''));
+    } else if (normalizedSlotId.startsWith('Bloque_')) {
+      // Handle legacy format
+      slotNumber = parseInt(normalizedSlotId.replace('Bloque_', ''));
+    } else {
+      console.error(`[Backend] Invalid slot ID format: ${normalizedSlotId}`);
+      return {
+        success: false,
+        error: `Invalid slot ID format: ${normalizedSlotId}`
+      };
+    }
+
+    const appointmentHour = slotNumber + 7; // block_1 -> 8:00, block_2 -> 9:00, etc.
 
     // Crear una nueva fecha con la hora correcta
     const finalDate = new Date(dateStr);
@@ -496,12 +509,12 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
       console.log(`[Backend] Sample appointment: ${JSON.stringify(existingAppointments[0])}`);
     }
 
-    // Definir los slots por defecto (8:00 AM a 1:00 AM)
-    // Bloque_1 para 8:00, Bloque_2 para 9:00, etc.
-    // Ampliamos el rango para incluir todos los slots posibles (1-18)
+    // Define default slots (8:00 AM to 1:00 AM)
+    // block_1 for 8:00, block_2 for 9:00, etc.
+    // Include all possible slots (1-18)
     const defaultSlots = [];
     for (let i = 1; i <= 18; i++) {
-      defaultSlots.push(`Bloque_${i}`);
+      defaultSlots.push(`block_${i}`);
     }
 
     console.log(`[Backend] Slots por defecto: ${defaultSlots.join(', ')}`);
@@ -596,21 +609,23 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
     });
     console.log(`[Backend] Total de slots disponibles: ${availableCount} de ${Object.keys(slotsInfo).length}`);
 
-    // Aplicar las citas existentes
+    // Apply existing appointments
     existingAppointments.forEach(appointment => {
       const hour = appointment.date.getHours();
       const slotIndex = hour - 7; // 8:00 -> 1, 9:00 -> 2, etc.
-      const slotId = `Bloque_${slotIndex}`;
+      const slotId = `block_${slotIndex}`;
 
       if (slotsInfo[slotId]) {
-        // Marcar como reservado
+        // Mark as reserved
         slotsInfo[slotId].available = false;
         slotsInfo[slotId].status = 'reserved';
         slotsInfo[slotId].reservedByPatient = {
           id: appointment.patientId,
-          name: appointment.patient?.user?.name || 'Paciente',
+          name: appointment.patient?.user?.name || 'Patient',
           appointmentId: appointment.id
         };
+      } else {
+        console.log(`[Backend] Warning: Slot ${slotId} not found in slotsInfo for existing appointment at ${appointment.date}`);
       }
     });
 
@@ -686,33 +701,39 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
 
 /**
  * Helper function to get the hour from a slot ID
- * @param {string} slotId - Slot ID (e.g., 'Bloque_1')
+ * @param {string} slotId - Slot ID (e.g., 'block_1' or legacy 'Bloque_1')
  * @returns {string} Hour string (e.g., '8:00 - 9:00')
  */
 const getHourFromSlotId = (slotId) => {
   // Extract the number from the slot ID
-  const match = slotId.match(/Bloque_(\d+)/);
+  let match = slotId.match(/block_(\d+)/);
+
+  // If not in the new format, try the legacy format
   if (!match) {
-    console.warn(`[Backend] ID de slot inválido: ${slotId}`);
-    return 'Hora desconocida';
+    match = slotId.match(/Bloque_(\d+)/);
+  }
+
+  if (!match) {
+    console.warn(`[Backend] Invalid slot ID: ${slotId}`);
+    return 'Unknown hour';
   }
 
   const slotNumber = parseInt(match[1]);
 
-  // Corregir el mapeo de slots a horas
-  // Bloque_1 -> 8:00, Bloque_2 -> 9:00, etc.
-  // Bloque_8 -> 15:00, Bloque_9 -> 16:00, etc.
-  const startHour = slotNumber + 7; // Bloque_1 -> 8:00, Bloque_2 -> 9:00, etc.
+  // Map slot numbers to hours
+  // block_1 -> 8:00, block_2 -> 9:00, etc.
+  // block_8 -> 15:00, block_9 -> 16:00, etc.
+  const startHour = slotNumber + 7; // block_1 -> 8:00, block_2 -> 9:00, etc.
   const endHour = startHour + 1;
 
-  // Formatear las horas correctamente, incluso para horas mayores a 23
+  // Format hours correctly, even for hours greater than 23
   let formattedStartHour = startHour;
   let formattedEndHour = endHour;
 
-  // Si la hora es mayor a 23, mostrarla como está para mantener la consistencia
-  // con el resto del código, aunque técnicamente no sea una hora válida en formato 24h
+  // If the hour is greater than 23, show it as is to maintain consistency
+  // with the rest of the code, even though it's technically not a valid 24h format
 
-  console.log(`[Backend] Slot ${slotId} -> Hora ${formattedStartHour}:00 - ${formattedEndHour}:00`);
+  console.log(`[Backend] Slot ${slotId} -> Hour ${formattedStartHour}:00 - ${formattedEndHour}:00`);
   return `${formattedStartHour}:00 - ${formattedEndHour}:00`;
 };
 
