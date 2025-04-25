@@ -15,7 +15,8 @@ const DoctorScheduleManagementPage = () => {
   const [toast, setToast] = useState(null);
 
   // Estado para la semana actual
-  const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  // Usamos el 24 de abril de 2025 como fecha base (según los logs)
+  const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(2025, 3, 24), { weekStartsOn: 1 }));
 
   // Estado para los horarios disponibles
   const [availableSlots, setAvailableSlots] = useState({});
@@ -43,13 +44,9 @@ const DoctorScheduleManagementPage = () => {
   // Generar los días de la semana actual
   // Usamos useMemo para evitar recalcular en cada renderizado
   const weekDays = useMemo(() => {
-    // Asegurarnos de que la semana comience en una fecha específica para coincidir con los datos del servidor
-    // Usamos el 24 de abril de 2025 como fecha base (según los logs)
-    const baseDate = new Date(2025, 3, 24); // 24 de abril de 2025 (los meses en JS son 0-indexed)
-
-    // Usar directamente la fecha base como inicio de la semana
-    // Ya que los datos del servidor están fijos para estas fechas específicas
-    const startDate = new Date(baseDate);
+    // Usar el estado currentWeek como inicio de la semana
+    // Esto permitirá que la navegación entre semanas funcione correctamente
+    const startDate = new Date(currentWeek);
 
     console.log(`Generando días para la semana que comienza el ${format(startDate, 'yyyy-MM-dd')}`);
 
@@ -196,9 +193,9 @@ const DoctorScheduleManagementPage = () => {
     setShouldUpdateData(prev => !prev);
   };
 
-  // Navegar a la semana actual
+  // Navegar a la semana de referencia (24 de abril de 2025)
   const goToCurrentWeek = () => {
-    setCurrentWeek(startOfWeek(new Date(), { weekStartsOn: 1 }));
+    setCurrentWeek(startOfWeek(new Date(2025, 3, 24), { weekStartsOn: 1 }));
     // Indicar que se deben actualizar los datos
     setShouldUpdateData(prev => !prev);
   };
@@ -329,9 +326,9 @@ const DoctorScheduleManagementPage = () => {
                 <Button
                   variant="outline"
                   onClick={goToCurrentWeek}
-                  aria-label="Semana actual"
+                  aria-label="Semana de referencia"
                 >
-                  Hoy
+                  Semana Base
                 </Button>
 
                 <Button
