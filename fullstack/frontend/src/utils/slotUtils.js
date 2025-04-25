@@ -8,21 +8,35 @@
  * @returns {string|null} - Normalized slot ID or null if invalid
  */
 export const normalizeSlotId = (slotId) => {
-  if (!slotId) return null;
-  
+  if (!slotId) {
+    console.warn('normalizeSlotId: slotId is null or undefined');
+    return null;
+  }
+
+  // Convertir a string si no lo es
+  const slotIdStr = String(slotId);
+
   // Normalizar a formato Bloque_X para backend
-  if (slotId.startsWith('Bloque_')) return slotId;
-  
-  if (slotId.startsWith('slot_')) {
-    const number = slotId.replace('slot_', '');
-    return `Bloque_${number}`;
+  if (slotIdStr.startsWith('Bloque_')) {
+    console.log(`normalizeSlotId: ${slotIdStr} ya está en formato backend`);
+    return slotIdStr;
   }
-  
-  if (!isNaN(slotId)) {
-    return `Bloque_${slotId}`;
+
+  if (slotIdStr.startsWith('slot_')) {
+    const number = slotIdStr.replace('slot_', '');
+    const result = `Bloque_${number}`;
+    console.log(`normalizeSlotId: ${slotIdStr} -> ${result}`);
+    return result;
   }
-  
-  return slotId;
+
+  if (!isNaN(slotIdStr)) {
+    const result = `Bloque_${slotIdStr}`;
+    console.log(`normalizeSlotId: ${slotIdStr} (número) -> ${result}`);
+    return result;
+  }
+
+  console.warn(`normalizeSlotId: formato desconocido: ${slotIdStr}`);
+  return slotIdStr;
 };
 
 /**
@@ -31,12 +45,32 @@ export const normalizeSlotId = (slotId) => {
  * @returns {string|null} - Denormalized slot ID or null if invalid
  */
 export const denormalizeSlotId = (slotId) => {
-  if (!slotId) return null;
-  
-  if (slotId.startsWith('Bloque_')) {
-    const number = slotId.replace('Bloque_', '');
-    return `slot_${number}`;
+  if (!slotId) {
+    console.warn('denormalizeSlotId: slotId is null or undefined');
+    return null;
   }
-  
-  return slotId;
+
+  // Convertir a string si no lo es
+  const slotIdStr = String(slotId);
+
+  if (slotIdStr.startsWith('slot_')) {
+    console.log(`denormalizeSlotId: ${slotIdStr} ya está en formato frontend`);
+    return slotIdStr;
+  }
+
+  if (slotIdStr.startsWith('Bloque_')) {
+    const number = slotIdStr.replace('Bloque_', '');
+    const result = `slot_${number}`;
+    console.log(`denormalizeSlotId: ${slotIdStr} -> ${result}`);
+    return result;
+  }
+
+  if (!isNaN(slotIdStr)) {
+    const result = `slot_${slotIdStr}`;
+    console.log(`denormalizeSlotId: ${slotIdStr} (número) -> ${result}`);
+    return result;
+  }
+
+  console.warn(`denormalizeSlotId: formato desconocido: ${slotIdStr}`);
+  return slotIdStr;
 };

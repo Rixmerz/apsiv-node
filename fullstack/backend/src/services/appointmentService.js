@@ -393,16 +393,13 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
     console.log(`[Backend] Doctor found: ${JSON.stringify(doctor)}`);
 
     // Obtener la configuración del doctor para esta fecha
-    // Asegurarnos de que la fecha se maneje correctamente
-    const dateParts = dateStr.split('-');
-    const year = parseInt(dateParts[0]);
-    const month = parseInt(dateParts[1]) - 1; // Los meses en JavaScript son 0-indexed
-    const day = parseInt(dateParts[2]);
+    // Usar formato UTC para evitar problemas de zona horaria
+    const startDate = new Date(`${dateStr}T00:00:00Z`);
+    const endDate = new Date(`${dateStr}T23:59:59Z`);
 
-    const startDate = new Date(year, month, day, 0, 0, 0);
-    const endDate = new Date(year, month, day, 23, 59, 59);
-
-    console.log(`[Backend] Date parts: year=${year}, month=${month}, day=${day}`);
+    console.log(`[Backend] Fecha original: ${dateStr}`);
+    console.log(`[Backend] Fecha UTC start: ${startDate.toISOString()}`);
+    console.log(`[Backend] Fecha UTC end: ${endDate.toISOString()}`);
     console.log(`[Backend] Searching for doctor schedule between ${startDate.toISOString()} and ${endDate.toISOString()}`);
 
     const doctorSchedule = await prisma.doctorSchedule.findMany({
@@ -472,8 +469,11 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
     });
 
     // Aplicar la configuración del doctor
+    console.log(`[Backend] Procesando ${doctorSchedule.length} entradas de horario del doctor`);
+
     doctorSchedule.forEach(schedule => {
       const normalizedSlotId = normalizeSlotId(schedule.slotId);
+      console.log(`[Backend] Procesando slot: ${schedule.slotId} -> normalizado: ${normalizedSlotId}, disponible: ${schedule.available}, fecha: ${schedule.date.toISOString()}`);
 
       if (slotsInfo[normalizedSlotId]) {
         slotsInfo[normalizedSlotId].configuredByDoctor = true;
@@ -482,7 +482,21 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
         // Actualizar el estado basado en la configuración del doctor
         if (schedule.available) {
           slotsInfo[normalizedSlotId].status = 'available';
+          console.log(`[Backend] Slot ${normalizedSlotId} marcado como disponible`);
+        } else {
+          console.log(`[Backend] Slot ${normalizedSlotId} marcado como no disponible`);
         }
+      } else {
+        console.log(`[Backend] ADVERTENCIA: Slot ${normalizedSlotId} no encontrado en slotsInfo`);
+      }
+    });
+
+    // Mostrar un resumen de los slots disponibles
+    console.log('[Backend] Resumen de slots disponibles:');
+    Object.keys(slotsInfo).forEach(slotId => {
+      const info = slotsInfo[slotId];
+      if (info.status === 'available') {
+        console.log(`[Backend] - Slot ${slotId}: ${info.hour} (configurado: ${info.configuredByDoctor}, disponible: ${info.available})`);
       }
     });
 

@@ -45,21 +45,54 @@ const updateDoctorSchedule = async (req, res) => {
       return res.status(400).json({ error: 'Available slots object cannot be empty' });
     }
 
-    console.log(`Actualizando horarios para doctor ID: ${doctorId}`);
-    console.log('Datos recibidos:', JSON.stringify(availableSlots).substring(0, 200) + '...');
+    console.log(`[Backend] Actualizando horarios para doctor ID: ${doctorId}`);
+    console.log('[Backend] Datos recibidos:', JSON.stringify(availableSlots).substring(0, 200) + '...');
 
-    // Imprimir algunos ejemplos de los datos recibidos para depuración
+    // Imprimir información detallada sobre los datos recibidos
     const dateKeys = Object.keys(availableSlots);
-    if (dateKeys.length > 0) {
-      const sampleDate = dateKeys[0];
-      console.log(`Ejemplo para fecha ${sampleDate}:`, availableSlots[sampleDate]);
+    console.log(`[Backend] Fechas recibidas: ${dateKeys.join(', ')}`);
+
+    // Contar cuántos slots están marcados como disponibles por fecha
+    for (const dateStr of dateKeys) {
+      const slots = availableSlots[dateStr];
+      const slotKeys = Object.keys(slots);
+      const availableCount = Object.values(slots).filter(Boolean).length;
+      console.log(`[Backend] Fecha ${dateStr}: ${slotKeys.length} slots, ${availableCount} disponibles`);
+
+      // Mostrar los slots disponibles
+      if (availableCount > 0) {
+        const availableSlots = slotKeys.filter(slotId => slots[slotId]);
+        console.log(`[Backend] Slots disponibles para ${dateStr}: ${availableSlots.join(', ')}`);
+      }
     }
 
     try {
       const schedule = await doctorService.updateDoctorSchedule(doctorId, availableSlots);
-      console.log('Horarios actualizados correctamente');
-      console.log('Respuesta:', JSON.stringify(schedule).substring(0, 200) + '...');
-      res.status(200).json(schedule);
+      console.log('[Backend] Horarios actualizados correctamente');
+      console.log('[Backend] Respuesta:', JSON.stringify(schedule).substring(0, 200) + '...');
+
+      // Verificar el resultado
+      const updatedDates = Object.keys(schedule);
+      console.log(`[Backend] Fechas actualizadas: ${updatedDates.join(', ')}`);
+
+      // Contar cuántos slots están marcados como disponibles en el resultado
+      let totalAvailableSlots = 0;
+      for (const dateStr of updatedDates) {
+        const availableCount = Object.values(schedule[dateStr]).filter(Boolean).length;
+        console.log(`[Backend] Fecha ${dateStr} en resultado: ${availableCount} slots disponibles`);
+        totalAvailableSlots += availableCount;
+      }
+      console.log(`[Backend] Total de slots disponibles en el resultado: ${totalAvailableSlots}`);
+
+      res.status(200).json({
+        success: true,
+        message: 'Horarios actualizados correctamente',
+        data: schedule,
+        summary: {
+          updatedDates: updatedDates.length,
+          totalAvailableSlots
+        }
+      });
     } catch (serviceError) {
       // Si el error es que no se encontró el doctor, devolvemos un 404
       if (serviceError.message.includes('not found')) {

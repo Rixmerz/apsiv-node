@@ -116,16 +116,13 @@ const updateDoctorSchedule = async (doctorId, availableSlots) => {
           }
 
           // Create start and end of day for the date
-          // Asegurarnos de que la fecha se maneje correctamente
-          const dateParts = dateStr.split('-');
-          const year = parseInt(dateParts[0]);
-          const month = parseInt(dateParts[1]) - 1; // Los meses en JavaScript son 0-indexed
-          const day = parseInt(dateParts[2]);
+          // Usar formato UTC para evitar problemas de zona horaria
+          const startDate = new Date(`${dateStr}T00:00:00Z`);
+          const endDate = new Date(`${dateStr}T23:59:59Z`);
 
-          const startDate = new Date(year, month, day, 0, 0, 0);
-          const endDate = new Date(year, month, day, 23, 59, 59);
-
-          console.log(`[Backend] Date parts: year=${year}, month=${month}, day=${day}`);
+          console.log(`[Backend] Fecha original: ${dateStr}`);
+          console.log(`[Backend] Fecha UTC start: ${startDate.toISOString()}`);
+          console.log(`[Backend] Fecha UTC end: ${endDate.toISOString()}`);
 
           console.log(`Eliminando entradas existentes para la fecha ${dateStr} (${startDate.toISOString()} - ${endDate.toISOString()})`);
 
@@ -151,14 +148,24 @@ const updateDoctorSchedule = async (doctorId, availableSlots) => {
       // Create new schedule entries
       const scheduleEntries = [];
 
+      console.log('[Backend] Iniciando creación de nuevas entradas de horario');
+      console.log(`[Backend] Fechas a procesar: ${Object.keys(availableSlots).join(', ')}`);
+
       for (const dateStr in availableSlots) {
         // Validar que la fecha sea válida
         try {
-          const date = new Date(dateStr);
+          // Usar formato UTC para evitar problemas de zona horaria
+          const date = new Date(`${dateStr}T00:00:00Z`);
           if (isNaN(date.getTime())) {
-            console.warn(`Invalid date: ${dateStr}, skipping`);
+            console.warn(`[Backend] Fecha inválida: ${dateStr}, omitiendo`);
             continue;
           }
+
+          console.log(`[Backend] Procesando fecha: ${dateStr}, slots: ${Object.keys(availableSlots[dateStr]).length}`);
+
+          // Contar cuántos slots están marcados como disponibles
+          const availableCount = Object.values(availableSlots[dateStr]).filter(Boolean).length;
+          console.log(`[Backend] Slots marcados como disponibles para ${dateStr}: ${availableCount}`);
 
           for (const slotId in availableSlots[dateStr]) {
             // Normalizar el ID del slot para asegurar consistencia
@@ -167,7 +174,7 @@ const updateDoctorSchedule = async (doctorId, availableSlots) => {
             // Validar que el valor de disponibilidad sea booleano
             const isAvailable = Boolean(availableSlots[dateStr][slotId]);
 
-            console.log(`Creando entrada para fecha ${dateStr}, slot ${normalizedSlotId}, disponible: ${isAvailable}`);
+            console.log(`[Backend] Creando entrada para fecha ${dateStr}, slot ${slotId} -> ${normalizedSlotId}, disponible: ${isAvailable}`);
 
             const entry = await prisma.doctorSchedule.create({
               data: {
@@ -178,15 +185,25 @@ const updateDoctorSchedule = async (doctorId, availableSlots) => {
               }
             });
 
-            console.log(`Entrada creada con ID ${entry.id}, disponible: ${entry.available}`);
+            console.log(`[Backend] Entrada creada con ID ${entry.id}, fecha: ${entry.date.toISOString()}, slot: ${entry.slotId}, disponible: ${entry.available}`);
 
             scheduleEntries.push(entry);
           }
         } catch (dateError) {
-          console.error(`Error processing date ${dateStr}:`, dateError);
+          console.error(`[Backend] Error procesando fecha ${dateStr}:`, dateError);
           // Continuamos con la siguiente fecha en lugar de fallar toda la operación
           continue;
         }
+      }
+
+      console.log(`[Backend] Total de entradas creadas: ${scheduleEntries.length}`);
+
+      // Verificar si todas las entradas se crearon correctamente
+      const availableEntries = scheduleEntries.filter(entry => entry.available).length;
+      console.log(`[Backend] Entradas marcadas como disponibles: ${availableEntries}`);
+
+      if (scheduleEntries.length === 0) {
+        console.warn('[Backend] ADVERTENCIA: No se crearon entradas de horario');
       }
 
       return scheduleEntries;
