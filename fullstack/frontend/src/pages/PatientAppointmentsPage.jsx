@@ -4,6 +4,8 @@ import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useAuth } from '../hooks/useAuth';
 import { getPatientAppointments, cancelAppointment } from '../services/appointmentService';
+import Navbar from '../components/common/Navbar';
+import Footer from '../components/common/Footer';
 import Spinner from '../components/common/Spinner';
 import Toast from '../components/common/Toast';
 
@@ -100,23 +102,27 @@ const PatientAppointmentsPage = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Mis Citas</h1>
-        <Link
-          to="/patient/book-appointment"
-          className="bg-primary text-white px-4 py-2 rounded hover:bg-primary-dark"
-        >
-          Reservar Nueva Cita
-        </Link>
-      </div>
+    <div className="min-h-screen flex flex-col">
+      <Navbar />
 
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      <main className="flex-grow">
+        <div className="container mx-auto px-4 py-8">
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-3xl font-bold">Mis Citas</h1>
+            <Link
+              to="/patient/book-appointment"
+              className="bg-primary text-white px-4 py-2 rounded hover:bg-primary-dark"
+            >
+              Reservar Nueva Cita
+            </Link>
+          </div>
 
-      {loading ? (
-        <Spinner />
-      ) : (
-        <div className="bg-white rounded-lg shadow-md p-6">
+          {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
+          {loading ? (
+            <Spinner />
+          ) : (
+            <div className="bg-white rounded-lg shadow-md p-6">
           {appointments.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-gray-500 mb-4">No tiene citas programadas</p>
@@ -170,8 +176,12 @@ const PatientAppointmentsPage = () => {
               ))}
             </div>
           )}
+            </div>
+          )}
         </div>
-      )}
+      </main>
+
+      <Footer />
     </div>
   );
 };

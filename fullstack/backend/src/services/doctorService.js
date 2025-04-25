@@ -203,7 +203,79 @@ const updateDoctorSchedule = async (doctorId, availableSlots) => {
   }
 };
 
+/**
+ * Get all doctors
+ * @returns {Promise<Array>} List of doctors
+ */
+const getAllDoctors = async () => {
+  try {
+    console.log('[Backend] Getting all doctors');
+
+    const doctors = await prisma.doctor.findMany({
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        }
+      }
+    });
+
+    console.log(`[Backend] Found ${doctors.length} doctors`);
+    return doctors;
+  } catch (error) {
+    console.error('[Backend] Error getting all doctors:', error);
+    throw new Error(`Error getting all doctors: ${error.message}`);
+  }
+};
+
+/**
+ * Get doctor by ID
+ * @param {number} doctorId - Doctor ID
+ * @returns {Promise<Object>} Doctor data
+ */
+const getDoctorById = async (doctorId) => {
+  try {
+    console.log(`[Backend] Getting doctor with ID ${doctorId}`);
+
+    // Convertir doctorId a entero
+    const doctorIdInt = parseInt(doctorId);
+    if (isNaN(doctorIdInt)) {
+      throw new Error(`Invalid doctor ID: ${doctorId}`);
+    }
+
+    const doctor = await prisma.doctor.findUnique({
+      where: {
+        id: doctorIdInt
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        }
+      }
+    });
+
+    if (!doctor) {
+      throw new Error(`Doctor not found with ID: ${doctorIdInt}`);
+    }
+
+    console.log(`[Backend] Found doctor: ${JSON.stringify(doctor)}`);
+    return doctor;
+  } catch (error) {
+    console.error(`[Backend] Error getting doctor by ID: ${error.message}`);
+    throw new Error(`Error getting doctor by ID: ${error.message}`);
+  }
+};
+
 module.exports = {
   getDoctorSchedule,
-  updateDoctorSchedule
+  updateDoctorSchedule,
+  getAllDoctors,
+  getDoctorById
 };

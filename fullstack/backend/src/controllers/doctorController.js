@@ -78,7 +78,46 @@ const updateDoctorSchedule = async (req, res) => {
   }
 };
 
+// Get all doctors
+const getAllDoctors = async (req, res) => {
+  try {
+    const doctors = await doctorService.getAllDoctors();
+    res.status(200).json(doctors);
+  } catch (error) {
+    console.error('Error getting all doctors:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Get doctor by ID
+const getDoctorById = async (req, res) => {
+  try {
+    const { doctorId } = req.params;
+
+    try {
+      const doctor = await doctorService.getDoctorById(doctorId);
+      res.status(200).json(doctor);
+    } catch (serviceError) {
+      // Si el error es que no se encontró el doctor, devolvemos un 404
+      if (serviceError.message.includes('not found')) {
+        return res.status(404).json({ error: serviceError.message });
+      }
+      // Si el error es de validación, devolvemos un 400
+      if (serviceError.message.includes('Invalid')) {
+        return res.status(400).json({ error: serviceError.message });
+      }
+      // Para otros errores, propagamos el error
+      throw serviceError;
+    }
+  } catch (error) {
+    console.error('Error getting doctor by ID:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
 module.exports = {
   getDoctorSchedule,
-  updateDoctorSchedule
+  updateDoctorSchedule,
+  getAllDoctors,
+  getDoctorById
 };

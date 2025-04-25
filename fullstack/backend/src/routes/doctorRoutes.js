@@ -20,10 +20,17 @@ const conditionalAuth = (req, res, next) => {
   return authenticateToken(req, res, next);
 };
 
+// Get all doctors - Sin autenticación para permitir a pacientes ver doctores
+router.get('/', doctorController.getAllDoctors);
+
 // Get doctor schedule - Sin autenticación para permitir a pacientes ver horarios
 router.get('/schedule/:doctorId', doctorController.getDoctorSchedule);
 
 // Update doctor schedule - Con autenticación condicional
 router.post('/schedule/:doctorId', conditionalAuth, doctorController.updateDoctorSchedule);
+
+// Get doctor by ID - Sin autenticación para permitir a pacientes ver detalles del doctor
+// IMPORTANTE: Esta ruta debe ir después de las rutas específicas para evitar que capture todas las rutas
+router.get('/:doctorId', doctorController.getDoctorById);
 
 module.exports = router;

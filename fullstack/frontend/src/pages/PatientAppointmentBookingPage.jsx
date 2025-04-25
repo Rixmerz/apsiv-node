@@ -5,6 +5,8 @@ import { es } from 'date-fns/locale';
 import { useAuth } from '../hooks/useAuth';
 import { getAvailableSlotsForDate, createAppointment } from '../services/appointmentService';
 import { getAllDoctors } from '../services/doctorService';
+import Navbar from '../components/common/Navbar';
+import Footer from '../components/common/Footer';
 import Spinner from '../components/common/Spinner';
 import Toast from '../components/common/Toast';
 
@@ -355,15 +357,19 @@ const PatientAppointmentBookingPage = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6">Reservar Cita</h1>
+    <div className="min-h-screen flex flex-col">
+      <Navbar />
 
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      <main className="flex-grow">
+        <div className="container mx-auto px-4 py-8">
+          <h1 className="text-3xl font-bold mb-6">Reservar Cita</h1>
 
-      {loading && <Spinner />}
+          {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold mb-4">Seleccione un doctor</h2>
+          {loading && <Spinner />}
+
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h2 className="text-xl font-semibold mb-4">Seleccione un doctor</h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           {doctors.map(doctor => (
@@ -411,9 +417,13 @@ const PatientAppointmentBookingPage = () => {
             >
               {loading ? 'Reservando...' : 'Reservar Cita'}
             </button>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </div>
+      </main>
+
+      <Footer />
     </div>
   );
 };

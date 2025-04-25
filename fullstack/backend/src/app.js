@@ -29,7 +29,7 @@ app.use('/api/example', exampleRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/doctor', doctorRoutes);
+app.use('/api/doctors', doctorRoutes);
 
 // Default route
 app.get('/', (req, res) => {
