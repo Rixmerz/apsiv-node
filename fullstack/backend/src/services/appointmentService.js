@@ -205,7 +205,18 @@ const createAppointment = async (appointmentData) => {
     }
 
     // Validate that normalizedSlotId has the correct format
-    if (!normalizedSlotId || (!normalizedSlotId.match(/^block_\d+$/) && !normalizedSlotId.match(/^Bloque_\d+$/))) {
+    if (!normalizedSlotId) {
+      console.error(`[Backend] Error: Slot ID is null or undefined`);
+      return {
+        success: false,
+        error: `Slot ID is required`
+      };
+    }
+
+    // Check if the slot ID has a valid format (block_X, Bloque_X, or slot_X)
+    if (!normalizedSlotId.match(/^block_\d+$/) &&
+        !normalizedSlotId.match(/^Bloque_\d+$/) &&
+        !normalizedSlotId.match(/^slot_\d+$/)) {
       console.error(`[Backend] Error: Invalid slot format: ${normalizedSlotId}`);
       return {
         success: false,
@@ -213,55 +224,132 @@ const createAppointment = async (appointmentData) => {
       };
     }
 
-    // Verificar si el slot existe y está disponible
-    console.log(`[Backend] Verificando slot ${normalizedSlotId} en availabilityInfo:`, availabilityInfo);
+    // If the slot ID is in frontend format (slot_X), convert it to backend format (block_X)
+    if (normalizedSlotId.match(/^slot_\d+$/)) {
+      const slotNumber = normalizedSlotId.replace('slot_', '');
+      normalizedSlotId = `block_${slotNumber}`;
+      console.log(`[Backend] Converted slot ID from frontend format to backend format: ${normalizedSlotId}`);
+    }
 
-    // Verificar si availabilityInfo.slotsInfo existe
+    // Verify if the slot exists and is available
+    console.log(`[Backend] Verifying slot ${normalizedSlotId} in availabilityInfo:`, availabilityInfo);
+
+    // Verify if availabilityInfo.slotsInfo exists
     if (!availabilityInfo.slotsInfo) {
-      console.error(`[Backend] Error: availabilityInfo.slotsInfo es undefined o null`);
+      console.error(`[Backend] Error: availabilityInfo.slotsInfo is undefined or null`);
       return {
         success: false,
-        error: `Error al verificar disponibilidad del horario`
+        error: `Error verifying slot availability`
       };
     }
 
-    // Verificar si el slot existe
-    if (!availabilityInfo.slotsInfo[normalizedSlotId]) {
-      console.error(`[Backend] Error: Slot ${normalizedSlotId} no existe para esta fecha`);
+    // Log all available slots for debugging
+    console.log(`[Backend] Available slots in slotsInfo:`, Object.keys(availabilityInfo.slotsInfo));
+
+    // Try to find the slot in different formats
+    let slotInfo = null;
+    let actualSlotId = normalizedSlotId;
+
+    // First try with the normalized ID
+    if (availabilityInfo.slotsInfo[normalizedSlotId]) {
+      slotInfo = availabilityInfo.slotsInfo[normalizedSlotId];
+      console.log(`[Backend] Found slot with ID ${normalizedSlotId}`);
+    }
+    // Try with legacy format (Bloque_X)
+    else if (normalizedSlotId.startsWith('block_')) {
+      const slotNumber = normalizedSlotId.replace('block_', '');
+      const legacySlotId = `Bloque_${slotNumber}`;
+
+      if (availabilityInfo.slotsInfo[legacySlotId]) {
+        slotInfo = availabilityInfo.slotsInfo[legacySlotId];
+        actualSlotId = legacySlotId;
+        console.log(`[Backend] Found slot with legacy ID ${legacySlotId}`);
+      }
+    }
+    // Try with frontend format (slot_X)
+    else if (normalizedSlotId.startsWith('Bloque_')) {
+      const slotNumber = normalizedSlotId.replace('Bloque_', '');
+      const frontendSlotId = `slot_${slotNumber}`;
+
+      if (availabilityInfo.slotsInfo[frontendSlotId]) {
+        slotInfo = availabilityInfo.slotsInfo[frontendSlotId];
+        actualSlotId = frontendSlotId;
+        console.log(`[Backend] Found slot with frontend ID ${frontendSlotId}`);
+      }
+    }
+
+    // If we still couldn't find the slot, try with just the number
+    if (!slotInfo) {
+      // Extract the slot number
+      let slotNumber = null;
+
+      if (normalizedSlotId.startsWith('block_')) {
+        slotNumber = normalizedSlotId.replace('block_', '');
+      } else if (normalizedSlotId.startsWith('Bloque_')) {
+        slotNumber = normalizedSlotId.replace('Bloque_', '');
+      } else if (normalizedSlotId.startsWith('slot_')) {
+        slotNumber = normalizedSlotId.replace('slot_', '');
+      }
+
+      // Try all possible formats with this number
+      if (slotNumber) {
+        const possibleFormats = [
+          `block_${slotNumber}`,
+          `Bloque_${slotNumber}`,
+          `slot_${slotNumber}`
+        ];
+
+        for (const format of possibleFormats) {
+          if (availabilityInfo.slotsInfo[format]) {
+            slotInfo = availabilityInfo.slotsInfo[format];
+            actualSlotId = format;
+            console.log(`[Backend] Found slot with alternative format ${format}`);
+            break;
+          }
+        }
+      }
+    }
+
+    // If we still couldn't find the slot, return an error
+    if (!slotInfo) {
+      console.error(`[Backend] Error: Slot ${normalizedSlotId} does not exist for this date`);
       return {
         success: false,
-        error: `Slot ${normalizedSlotId} no existe para esta fecha`
+        error: `Slot ${normalizedSlotId} does not exist for this date`
       };
     }
 
-    const slotInfo = availabilityInfo.slotsInfo[normalizedSlotId];
-    console.log(`[Backend] Información del slot: ${JSON.stringify(slotInfo)}`);
+    // We already have slotInfo from the previous code
+    console.log(`[Backend] Slot information: ${JSON.stringify(slotInfo)}`);
 
-    // Verificar si el doctor ha configurado este horario
-    if (!slotInfo.configuredByDoctor) {
-      console.error(`[Backend] Error: El doctor no ha configurado este horario como disponible`);
+    // Check if the doctor has configured this slot
+    if (slotInfo.configuredByDoctor === false) {
+      console.error(`[Backend] Error: The doctor has not configured this slot as available`);
       return {
         success: false,
-        error: `El doctor no ha configurado este horario como disponible`
+        error: `The doctor has not configured this slot as available`
       };
     }
 
-    // Verificar si el horario está disponible
-    if (!slotInfo.available) {
+    // Check if the slot is available
+    if (slotInfo.available === false) {
       if (slotInfo.status === 'reserved') {
-        console.error(`[Backend] Error: Este horario ya está reservado por otro paciente`);
+        console.error(`[Backend] Error: This slot is already reserved by another patient`);
         return {
           success: false,
-          error: `Este horario ya está reservado por otro paciente`
+          error: `This slot is already reserved by another patient`
         };
       } else {
-        console.error(`[Backend] Error: Este horario no está disponible`);
+        console.error(`[Backend] Error: This slot is not available`);
         return {
           success: false,
-          error: `Este horario no está disponible`
+          error: `This slot is not available`
         };
       }
     }
+
+    // If we got here, the slot is available
+    console.log(`[Backend] Slot ${actualSlotId} is available and will be used for the appointment`);
 
     // Si llegamos aquí, el slot está disponible, podemos crear la cita
     console.log(`[Backend] Creando cita para doctor ${doctorIdInt}, paciente ${patientIdInt}, fecha ${dateStr}, slot ${normalizedSlotId}`);
@@ -510,12 +598,18 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
     }
 
     // Define default slots (8:00 AM to 1:00 AM)
-    // block_1 for 8:00, block_2 for 9:00, etc.
-    // Include all possible slots (1-18)
+    // We need to handle both formats during transition:
+    // - Legacy format: Bloque_X (stored in database)
+    // - New format: block_X (used in new code)
+
+    // Include all possible slots (1-18) in both formats
     const defaultSlots = [];
     for (let i = 1; i <= 18; i++) {
       defaultSlots.push(`block_${i}`);
+      defaultSlots.push(`Bloque_${i}`); // Also include legacy format
     }
+
+    console.log(`[Backend] Default slots (${defaultSlots.length}):`, defaultSlots.join(', '));
 
     console.log(`[Backend] Slots por defecto: ${defaultSlots.join(', ')}`);
     console.log(`[Backend] Total de slots por defecto: ${defaultSlots.length}`);
@@ -701,29 +795,37 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
 
 /**
  * Helper function to get the hour from a slot ID
- * @param {string} slotId - Slot ID (e.g., 'block_1' or legacy 'Bloque_1')
+ * @param {string} slotId - Slot ID (e.g., 'block_1', 'Bloque_1', or 'slot_1')
  * @returns {string} Hour string (e.g., '8:00 - 9:00')
  */
 const getHourFromSlotId = (slotId) => {
-  // Extract the number from the slot ID
-  let match = slotId.match(/block_(\d+)/);
-
-  // If not in the new format, try the legacy format
-  if (!match) {
-    match = slotId.match(/Bloque_(\d+)/);
-  }
-
-  if (!match) {
-    console.warn(`[Backend] Invalid slot ID: ${slotId}`);
+  if (!slotId) {
+    console.warn(`[Backend] getHourFromSlotId: slotId is null or undefined`);
     return 'Unknown hour';
   }
 
-  const slotNumber = parseInt(match[1]);
+  // Extract the number from the slot ID using various formats
+  let slotNumber = null;
+
+  // Try all possible formats
+  if (slotId.startsWith('block_')) {
+    slotNumber = parseInt(slotId.replace('block_', ''));
+  } else if (slotId.startsWith('Bloque_')) {
+    slotNumber = parseInt(slotId.replace('Bloque_', ''));
+  } else if (slotId.startsWith('slot_')) {
+    slotNumber = parseInt(slotId.replace('slot_', ''));
+  } else if (!isNaN(slotId)) {
+    slotNumber = parseInt(slotId);
+  }
+
+  if (slotNumber === null || isNaN(slotNumber)) {
+    console.warn(`[Backend] Invalid slot ID format: ${slotId}`);
+    return 'Unknown hour';
+  }
 
   // Map slot numbers to hours
-  // block_1 -> 8:00, block_2 -> 9:00, etc.
-  // block_8 -> 15:00, block_9 -> 16:00, etc.
-  const startHour = slotNumber + 7; // block_1 -> 8:00, block_2 -> 9:00, etc.
+  // slot 1 -> 8:00, slot 2 -> 9:00, etc.
+  const startHour = slotNumber + 7; // slot 1 -> 8:00, slot 2 -> 9:00, etc.
   const endHour = startHour + 1;
 
   // Format hours correctly, even for hours greater than 23
