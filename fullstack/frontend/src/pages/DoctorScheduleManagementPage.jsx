@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import api from '../api/axios';
-import { format, addDays, isSameDay, addWeeks, subWeeks, isBefore, parseISO } from 'date-fns';
+import { format, addDays, isSameDay, addWeeks, subWeeks, isBefore } from 'date-fns';
 import { es } from 'date-fns/locale';
 import Navbar from '../components/common/Navbar';
 import Footer from '../components/common/Footer';
@@ -333,11 +333,11 @@ const DoctorScheduleManagementPage = () => {
     });
   };
 
-  // Guardar los cambios
+  // Guardar los cambios SOLO de la semana actual
   const saveChanges = async () => {
     try {
       setLoading(true);
-      console.log('Guardando horarios disponibles para la semana actual');
+      console.log('Guardando ÚNICAMENTE los horarios de la semana actual');
 
       if (!user || !user.doctorProfile) {
         throw new Error('No se encontró el perfil de doctor');
@@ -351,10 +351,10 @@ const DoctorScheduleManagementPage = () => {
 
         // Obtener las fechas de la semana actual (excluyendo fines de semana)
         const currentWeekDates = weekDays
-          .filter(day => !day.isWeekend)
+          .filter(day => !day.isWeekend && !day.isPast) // Excluir fines de semana y fechas pasadas
           .map(day => format(day.date, 'yyyy-MM-dd'));
 
-        console.log('Fechas de la semana actual a guardar:', currentWeekDates);
+        console.log('Fechas de la semana actual a guardar (excluyendo pasadas y fines de semana):', currentWeekDates);
 
         // Recorrer solo las fechas de la semana actual
         currentWeekDates.forEach(dateStr => {
@@ -389,7 +389,7 @@ const DoctorScheduleManagementPage = () => {
         // Ya no guardamos en localStorage para evitar inconsistencias
 
         setToast({
-          message: 'Horarios guardados con éxito en el servidor',
+          message: 'Horarios de esta semana guardados con éxito en el servidor',
           type: 'success'
         });
       } catch (apiError) {
@@ -589,7 +589,7 @@ const DoctorScheduleManagementPage = () => {
                     onClick={saveChanges}
                     disabled={loading}
                   >
-                    {loading ? 'Guardando...' : 'Guardar Cambios'}
+                    {loading ? 'Guardando...' : 'Guardar Cambios de Esta Semana'}
                   </Button>
                 </div>
               </>
