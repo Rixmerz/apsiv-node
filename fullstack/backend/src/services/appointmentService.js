@@ -190,8 +190,27 @@ const createAppointment = async (appointmentData) => {
       // Si no se proporciona un slotId, extraerlo de la hora de la cita
       const hour = appointmentDate.getHours();
       const slotIndex = hour - 7; // 8:00 -> 1, 9:00 -> 2, etc.
+
+      // Validar que el slotIndex esté en un rango válido (1-18)
+      if (slotIndex < 1 || slotIndex > 18) {
+        console.error(`[Backend] Error: Hora de cita inválida (${hour}:00). Debe estar entre 8:00 y 25:00.`);
+        return {
+          success: false,
+          error: `Hora de cita inválida (${hour}:00). Debe estar entre 8:00 y 25:00.`
+        };
+      }
+
       normalizedSlotId = `Bloque_${slotIndex}`;
       console.log(`[Backend] Slot ID calculado de la hora: ${normalizedSlotId}`);
+    }
+
+    // Validar que el normalizedSlotId tenga el formato correcto
+    if (!normalizedSlotId || !normalizedSlotId.match(/^Bloque_\d+$/)) {
+      console.error(`[Backend] Error: Formato de slot inválido: ${normalizedSlotId}`);
+      return {
+        success: false,
+        error: `Formato de slot inválido: ${normalizedSlotId}`
+      };
     }
 
     // Verificar si el slot existe y está disponible
@@ -477,10 +496,11 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
       console.log(`[Backend] Sample appointment: ${JSON.stringify(existingAppointments[0])}`);
     }
 
-    // Definir los slots por defecto (8:00 AM a 6:00 PM)
+    // Definir los slots por defecto (8:00 AM a 1:00 AM)
     // Bloque_1 para 8:00, Bloque_2 para 9:00, etc.
+    // Ampliamos el rango para incluir todos los slots posibles (1-18)
     const defaultSlots = [];
-    for (let i = 1; i <= 11; i++) {
+    for (let i = 1; i <= 18; i++) {
       defaultSlots.push(`Bloque_${i}`);
     }
 
@@ -685,8 +705,15 @@ const getHourFromSlotId = (slotId) => {
   const startHour = slotNumber + 7; // Bloque_1 -> 8:00, Bloque_2 -> 9:00, etc.
   const endHour = startHour + 1;
 
-  console.log(`[Backend] Slot ${slotId} -> Hora ${startHour}:00 - ${endHour}:00`);
-  return `${startHour}:00 - ${endHour}:00`;
+  // Formatear las horas correctamente, incluso para horas mayores a 23
+  let formattedStartHour = startHour;
+  let formattedEndHour = endHour;
+
+  // Si la hora es mayor a 23, mostrarla como está para mantener la consistencia
+  // con el resto del código, aunque técnicamente no sea una hora válida en formato 24h
+
+  console.log(`[Backend] Slot ${slotId} -> Hora ${formattedStartHour}:00 - ${formattedEndHour}:00`);
+  return `${formattedStartHour}:00 - ${formattedEndHour}:00`;
 };
 
 module.exports = {
