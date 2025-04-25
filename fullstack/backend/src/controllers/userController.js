@@ -17,10 +17,19 @@ const register = async (req, res) => {
 // Login user
 const login = async (req, res) => {
   try {
+    console.log('Login request received:', req.body);
     const { email, password } = req.body;
+
+    if (!email || !password) {
+      console.error('Missing email or password');
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
     const result = await userService.loginUser(email, password);
+    console.log('Login successful for user:', email);
     res.status(200).json(result);
   } catch (error) {
+    console.error('Login error in controller:', error.message);
     res.status(401).json({ error: error.message });
   }
 };

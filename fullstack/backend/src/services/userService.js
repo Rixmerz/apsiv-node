@@ -97,6 +97,7 @@ const loginUser = async (email, password) => {
       token
     };
   } catch (error) {
+    console.error('Login error details:', error);
     throw new Error(`Error logging in: ${error.message}`);
   }
 };
