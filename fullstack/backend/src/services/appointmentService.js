@@ -195,22 +195,52 @@ const createAppointment = async (appointmentData) => {
     }
 
     // Verificar si el slot existe y está disponible
+    console.log(`[Backend] Verificando slot ${normalizedSlotId} en availabilityInfo:`, availabilityInfo);
+
+    // Verificar si availabilityInfo.slotsInfo existe
+    if (!availabilityInfo.slotsInfo) {
+      console.error(`[Backend] Error: availabilityInfo.slotsInfo es undefined o null`);
+      return {
+        success: false,
+        error: `Error al verificar disponibilidad del horario`
+      };
+    }
+
+    // Verificar si el slot existe
     if (!availabilityInfo.slotsInfo[normalizedSlotId]) {
-      throw new Error(`Slot ${normalizedSlotId} no existe para esta fecha`);
+      console.error(`[Backend] Error: Slot ${normalizedSlotId} no existe para esta fecha`);
+      return {
+        success: false,
+        error: `Slot ${normalizedSlotId} no existe para esta fecha`
+      };
     }
 
     const slotInfo = availabilityInfo.slotsInfo[normalizedSlotId];
     console.log(`[Backend] Información del slot: ${JSON.stringify(slotInfo)}`);
 
+    // Verificar si el doctor ha configurado este horario
     if (!slotInfo.configuredByDoctor) {
-      throw new Error(`El doctor no ha configurado este horario como disponible`);
+      console.error(`[Backend] Error: El doctor no ha configurado este horario como disponible`);
+      return {
+        success: false,
+        error: `El doctor no ha configurado este horario como disponible`
+      };
     }
 
+    // Verificar si el horario está disponible
     if (!slotInfo.available) {
       if (slotInfo.status === 'reserved') {
-        throw new Error(`Este horario ya está reservado por otro paciente`);
+        console.error(`[Backend] Error: Este horario ya está reservado por otro paciente`);
+        return {
+          success: false,
+          error: `Este horario ya está reservado por otro paciente`
+        };
       } else {
-        throw new Error(`Este horario no está disponible`);
+        console.error(`[Backend] Error: Este horario no está disponible`);
+        return {
+          success: false,
+          error: `Este horario no está disponible`
+        };
       }
     }
 

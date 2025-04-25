@@ -201,35 +201,71 @@ const PatientAppointmentBookingPage = () => {
       const appointmentDate = new Date(year, month, day, appointmentHour, 0, 0, 0);
       console.log(`Fecha de la cita: ${appointmentDate.toISOString()}, hora: ${appointmentHour}:00`);
 
+      // Obtener el ID del paciente del usuario actual
+      // Verificar la estructura del objeto user para obtener el ID del paciente
+      console.log('Usuario actual:', user);
+
+      let patientId;
+      if (user.patientProfile && user.patientProfile.id) {
+        patientId = user.patientProfile.id;
+      } else if (user.patient && user.patient.id) {
+        patientId = user.patient.id;
+      } else if (user.patientId) {
+        patientId = user.patientId;
+      } else {
+        // Si no podemos obtener el ID del paciente, mostrar un error
+        setToast({
+          message: 'No se pudo obtener el ID del paciente. Por favor, contacte al administrador.',
+          type: 'error'
+        });
+        setLoading(false);
+        return;
+      }
+
+      console.log(`ID del paciente obtenido: ${patientId}`);
+
       const appointmentData = {
         doctorId: selectedDoctor.id,
-        patientId: user.patientProfile.id,
+        patientId: patientId,
         date: appointmentDate.toISOString(),
         slotId: selectedSlot,
         notes: notes
       };
 
-      const result = await createAppointment(appointmentData);
+      console.log('Datos de la cita a enviar:', appointmentData);
 
-      if (result.success) {
+      try {
+        const result = await createAppointment(appointmentData);
+        console.log('Resultado de la creación de la cita:', result);
+
+        if (result.success) {
+          setToast({
+            message: 'Cita reservada con éxito',
+            type: 'success'
+          });
+
+          // Limpiar el formulario
+          setSelectedDoctor(null);
+          setSelectedDate(null);
+          setSelectedSlot(null);
+          setNotes('');
+
+          // Redirigir a la página de citas del paciente
+          setTimeout(() => {
+            navigate('/patient/appointments');
+          }, 2000);
+        } else {
+          // Mostrar el mensaje de error específico
+          setToast({
+            message: result.error || 'Error al reservar cita',
+            type: 'error'
+          });
+          console.error('Error al reservar cita:', result.error);
+        }
+      } catch (error) {
+        console.error('Error inesperado al reservar cita:', error);
         setToast({
-          message: 'Cita reservada con éxito',
-          type: 'success'
-        });
-
-        // Limpiar el formulario
-        setSelectedDoctor(null);
-        setSelectedDate(null);
-        setSelectedSlot(null);
-        setNotes('');
-
-        // Redirigir a la página de citas del paciente
-        setTimeout(() => {
-          navigate('/patient/appointments');
-        }, 2000);
-      } else {
-        setToast({
-          message: result.error || 'Error al reservar cita',
+          message: 'Error inesperado al reservar cita',
           type: 'error'
         });
       }

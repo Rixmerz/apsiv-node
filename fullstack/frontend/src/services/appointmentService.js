@@ -95,19 +95,77 @@ export const createAppointment = async (appointmentData) => {
   try {
     console.log('Creando cita con datos:', appointmentData);
 
+    // Validar los datos de la cita
+    if (!appointmentData.doctorId) {
+      console.error('Error: doctorId es requerido');
+      return {
+        success: false,
+        error: 'El ID del doctor es requerido'
+      };
+    }
+
+    if (!appointmentData.patientId) {
+      console.error('Error: patientId es requerido');
+      return {
+        success: false,
+        error: 'El ID del paciente es requerido'
+      };
+    }
+
+    if (!appointmentData.date) {
+      console.error('Error: date es requerido');
+      return {
+        success: false,
+        error: 'La fecha de la cita es requerida'
+      };
+    }
+
+    if (!appointmentData.slotId) {
+      console.error('Error: slotId es requerido');
+      return {
+        success: false,
+        error: 'El horario de la cita es requerido'
+      };
+    }
+
     // Normalizar el ID del slot si se proporciona
     let normalizedData = { ...appointmentData };
     if (appointmentData.slotId) {
       normalizedData.slotId = normalizeSlotId(appointmentData.slotId);
+      console.log(`Slot ID normalizado: ${normalizedData.slotId}`);
     }
 
+    console.log('Enviando datos normalizados:', normalizedData);
     const response = await axios.post(`${API_URL}/appointments`, normalizedData);
     console.log('Respuesta del servidor:', response.data);
 
     return response.data;
   } catch (error) {
     console.error('Error al crear cita:', error);
-    throw error;
+
+    // Manejar diferentes tipos de errores
+    if (error.response) {
+      // El servidor respondió con un código de error
+      console.error('Error del servidor:', error.response.data);
+      return {
+        success: false,
+        error: error.response.data.error || 'Error al crear la cita'
+      };
+    } else if (error.request) {
+      // La solicitud se hizo pero no se recibió respuesta
+      console.error('No se recibió respuesta del servidor');
+      return {
+        success: false,
+        error: 'No se recibió respuesta del servidor'
+      };
+    } else {
+      // Ocurrió un error al configurar la solicitud
+      console.error('Error al configurar la solicitud:', error.message);
+      return {
+        success: false,
+        error: 'Error al configurar la solicitud'
+      };
+    }
   }
 };
 
