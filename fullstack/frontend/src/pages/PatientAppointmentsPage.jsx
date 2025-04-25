@@ -2,19 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import { getPatientAppointments, cancelAppointment } from '../services/appointmentService';
 import Spinner from '../components/Spinner';
 import Toast from '../components/Toast';
 
 const PatientAppointmentsPage = () => {
   const { user } = useAuth();
-  
+
   // Estados
   const [loading, setLoading] = useState(false);
   const [appointments, setAppointments] = useState([]);
   const [toast, setToast] = useState(null);
-  
+
   // Cargar las citas del paciente al montar el componente
   useEffect(() => {
     const fetchAppointments = async () => {
@@ -25,7 +25,7 @@ const PatientAppointmentsPage = () => {
         });
         return;
       }
-      
+
       try {
         setLoading(true);
         const appointmentsData = await getPatientAppointments(user.patientProfile.id);
@@ -40,31 +40,31 @@ const PatientAppointmentsPage = () => {
         setLoading(false);
       }
     };
-    
+
     fetchAppointments();
   }, [user]);
-  
+
   // Cancelar una cita
   const handleCancelAppointment = async (appointmentId) => {
     if (!confirm('¿Está seguro de que desea cancelar esta cita?')) {
       return;
     }
-    
+
     try {
       setLoading(true);
       await cancelAppointment(appointmentId);
-      
+
       // Actualizar la lista de citas
       const updatedAppointments = appointments.filter(
         appointment => appointment.id !== appointmentId
       );
       setAppointments(updatedAppointments);
-      
+
       setToast({
         message: 'Cita cancelada con éxito',
         type: 'success'
       });
-      
+
       setLoading(false);
     } catch (error) {
       console.error('Error al cancelar cita:', error);
@@ -75,21 +75,21 @@ const PatientAppointmentsPage = () => {
       setLoading(false);
     }
   };
-  
+
   // Agrupar citas por fecha
   const groupAppointmentsByDate = () => {
     const grouped = {};
-    
+
     appointments.forEach(appointment => {
       const date = format(new Date(appointment.date), 'yyyy-MM-dd');
-      
+
       if (!grouped[date]) {
         grouped[date] = [];
       }
-      
+
       grouped[date].push(appointment);
     });
-    
+
     // Ordenar las fechas
     return Object.keys(grouped)
       .sort()
@@ -98,7 +98,7 @@ const PatientAppointmentsPage = () => {
         appointments: grouped[date].sort((a, b) => new Date(a.date) - new Date(b.date))
       }));
   };
-  
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
@@ -110,9 +110,9 @@ const PatientAppointmentsPage = () => {
           Reservar Nueva Cita
         </Link>
       </div>
-      
+
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-      
+
       {loading ? (
         <Spinner />
       ) : (
@@ -134,7 +134,7 @@ const PatientAppointmentsPage = () => {
                   <h2 className="text-xl font-semibold mb-4 pb-2 border-b">
                     {format(parseISO(group.date), 'EEEE d MMMM yyyy', { locale: es })}
                   </h2>
-                  
+
                   <div className="space-y-4">
                     {group.appointments.map(appointment => (
                       <div
@@ -147,7 +147,7 @@ const PatientAppointmentsPage = () => {
                               {format(new Date(appointment.date), 'HH:mm')} - Dr. {appointment.doctor.user.name}
                             </p>
                             <p className="text-gray-600">{appointment.doctor.specialty}</p>
-                            
+
                             {appointment.notes && (
                               <div className="mt-2">
                                 <p className="text-sm text-gray-500">Notas:</p>
@@ -155,7 +155,7 @@ const PatientAppointmentsPage = () => {
                               </div>
                             )}
                           </div>
-                          
+
                           <button
                             className="text-red-500 hover:text-red-700"
                             onClick={() => handleCancelAppointment(appointment.id)}
