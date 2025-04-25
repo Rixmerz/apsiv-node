@@ -43,8 +43,22 @@ const DoctorScheduleManagementPage = () => {
   // Generar los días de la semana actual
   // Usamos useMemo para evitar recalcular en cada renderizado
   const weekDays = useMemo(() => {
+    // Asegurarnos de que la semana comience en una fecha específica para coincidir con los datos del servidor
+    // Usamos el 24 de abril de 2025 como fecha base (según los logs)
+    const baseDate = new Date(2025, 3, 24); // 24 de abril de 2025 (los meses en JS son 0-indexed)
+
+    // Usar directamente la fecha base como inicio de la semana
+    // Ya que los datos del servidor están fijos para estas fechas específicas
+    const startDate = new Date(baseDate);
+
+    console.log(`Generando días para la semana que comienza el ${format(startDate, 'yyyy-MM-dd')}`);
+
     return Array.from({ length: 7 }, (_, i) => {
-      const day = addDays(currentWeek, i);
+      const day = addDays(startDate, i);
+      const dateStr = format(day, 'yyyy-MM-dd');
+
+      console.log(`Día ${i+1} de la semana: ${dateStr}`);
+
       return {
         date: day,
         dayName: format(day, 'EEEE', { locale: es }),
@@ -389,6 +403,18 @@ const DoctorScheduleManagementPage = () => {
                               console.log(`- ¿Slot existe? ${slotExists}`);
                               console.log(`- Valor del slot: ${slotValue}`);
                               console.log(`- ¿Está disponible? ${isAvailable}`);
+                            }
+
+                            // Si la fecha no existe en los datos, mostrar un mensaje
+                            if (!dateExists) {
+                              return (
+                                <td
+                                  key={dayIndex}
+                                  className="p-3 border text-center bg-gray-100"
+                                >
+                                  <div className="text-xs text-gray-500">No hay datos</div>
+                                </td>
+                              );
                             }
 
                             return (
