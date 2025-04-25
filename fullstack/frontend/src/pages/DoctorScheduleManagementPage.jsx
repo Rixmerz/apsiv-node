@@ -122,7 +122,7 @@ const DoctorScheduleManagementPage = () => {
           const doctorId = user.doctorProfile.id;
           console.log('Llamando a la API para obtener horarios del doctor:', doctorId);
 
-          const response = await api.get(`/api/doctor/schedule/${doctorId}`);
+          const response = await api.get(`/api/doctors/schedule/${doctorId}`);
           console.log('Respuesta del servidor:', response.data);
 
           // Inicializar con slots vacíos para las fechas de la semana actual
@@ -381,9 +381,9 @@ const DoctorScheduleManagementPage = () => {
         });
 
         // Intentar hacer la llamada a la API real
-        console.log(`Enviando datos al servidor: /api/doctor/schedule/${doctorId}`);
+        console.log(`Enviando datos al servidor: /api/doctors/schedule/${doctorId}`);
         console.log('Datos convertidos para el backend:', convertedSlots);
-        const response = await api.post(`/api/doctor/schedule/${doctorId}`, { availableSlots: convertedSlots });
+        const response = await api.post(`/api/doctors/schedule/${doctorId}`, { availableSlots: convertedSlots });
         console.log('Respuesta del servidor:', response.data);
 
         // Ya no guardamos en localStorage para evitar inconsistencias
