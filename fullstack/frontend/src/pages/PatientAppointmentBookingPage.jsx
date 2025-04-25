@@ -18,7 +18,8 @@ const PatientAppointmentBookingPage = () => {
   const [loading, setLoading] = useState(false);
   const [doctors, setDoctors] = useState([]);
   const [selectedDoctor, setSelectedDoctor] = useState(null);
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  // Usamos la misma fecha base que en la página de gestión de horarios del doctor (24 de abril de 2025)
+  const [currentMonth, setCurrentMonth] = useState(new Date(2025, 3, 24));
   const [selectedDate, setSelectedDate] = useState(null);
   const [availableSlots, setAvailableSlots] = useState({});
   const [selectedSlot, setSelectedSlot] = useState(null);
@@ -77,11 +78,12 @@ const PatientAppointmentBookingPage = () => {
         const day = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), i);
 
         // No mostrar días pasados ni fines de semana
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        // Usamos la misma fecha de referencia que en la página de gestión de horarios del doctor (24 de abril de 2025)
+        const referenceDate = new Date(2025, 3, 24);
+        referenceDate.setHours(0, 0, 0, 0);
 
         const isWeekend = day.getDay() === 0 || day.getDay() === 6;
-        const isPast = day < today;
+        const isPast = day < referenceDate;
 
         if (!isWeekend && !isPast) {
           availableDaysArray.push(day);
@@ -296,9 +298,10 @@ const PatientAppointmentBookingPage = () => {
       const isWeekend = date.getDay() === 0 || date.getDay() === 6;
 
       // Verificar si es un día pasado
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const isPast = date < today;
+      // Usamos la misma fecha de referencia que en la página de gestión de horarios del doctor (24 de abril de 2025)
+      const referenceDate = new Date(2025, 3, 24);
+      referenceDate.setHours(0, 0, 0, 0);
+      const isPast = date < referenceDate;
 
       // Verificar si el día está en la lista de días disponibles
       const isAvailable = availableDays.some(availableDay =>
