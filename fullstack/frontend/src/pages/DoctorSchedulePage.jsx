@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import axios from 'axios';
+import api from '../api/axios';
 import { format, startOfWeek, addDays, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import Navbar from '../components/common/Navbar';
@@ -40,18 +40,51 @@ const DoctorSchedulePage = () => {
 
       try {
         setLoading(true);
-        // Usar datos de demostración en lugar de hacer llamadas a la API
-        // que aún no está implementada
-        const demoAppointments = generateDemoAppointments();
-        setAppointments(demoAppointments);
 
-        setToast({
-          message: 'Mostrando datos de demostración',
-          type: 'info',
-          duration: 3000
-        });
+        // Obtener las citas del doctor desde la API
+        const doctorId = user.doctorProfile.id;
+        console.log(`Obteniendo citas para el doctor ID: ${doctorId}`);
+
+        try {
+          const response = await api.get(`/api/appointments/doctor/${doctorId}`);
+          console.log('Respuesta del servidor:', response.data);
+
+          if (response.data && Array.isArray(response.data.appointments)) {
+            setAppointments(response.data.appointments);
+
+            if (response.data.appointments.length === 0) {
+              setToast({
+                message: 'No tiene citas programadas',
+                type: 'info',
+                duration: 3000
+              });
+            } else {
+              setToast({
+                message: `${response.data.appointments.length} citas cargadas correctamente`,
+                type: 'success',
+                duration: 3000
+              });
+            }
+          } else {
+            // Si no hay datos o el formato es incorrecto
+            setAppointments([]);
+            setToast({
+              message: 'No se encontraron citas o el formato de respuesta es incorrecto',
+              type: 'warning',
+              duration: 3000
+            });
+          }
+        } catch (apiError) {
+          console.error('Error al obtener citas del servidor:', apiError);
+          setAppointments([]);
+          setToast({
+            message: 'Error al cargar las citas del servidor',
+            type: 'error',
+            duration: 3000
+          });
+        }
       } catch (error) {
-        console.error('Error generating demo appointments:', error);
+        console.error('Error al cargar citas:', error);
         setToast({
           message: 'Error al cargar las citas. Intente nuevamente.',
           type: 'error'
@@ -59,41 +92,6 @@ const DoctorSchedulePage = () => {
       } finally {
         setLoading(false);
       }
-    };
-
-    // Función para generar citas de demostración
-    const generateDemoAppointments = () => {
-      const today = new Date();
-      const appointments = [];
-
-      // Generar algunas citas para esta semana
-      for (let i = 0; i < 5; i++) {
-        const day = addDays(today, i % 5); // Distribuir en los próximos 5 días
-        const hour = 9 + (i % 8); // Horas entre 9 y 16
-
-        const appointmentDate = new Date(day);
-        appointmentDate.setHours(hour, 0, 0, 0);
-
-        appointments.push({
-          id: i + 1,
-          date: appointmentDate,
-          status: 'scheduled',
-          reason: ['Consulta inicial', 'Control', 'Revisión de medicamentos', 'Trastorno del sueño', 'Ansiedad'][i % 5],
-          notes: i % 2 === 0 ? 'Paciente con antecedentes de hipertensión' : '',
-          patient: {
-            id: 100 + i,
-            phone: `+56 9 ${Math.floor(10000000 + Math.random() * 90000000)}`,
-            birthDate: new Date(1950 + i, 0, 1),
-            user: {
-              id: 200 + i,
-              name: ['Juan Pérez', 'María González', 'Pedro Rodríguez', 'Ana Martínez', 'Carlos López'][i % 5],
-              email: `paciente${i+1}@example.com`
-            }
-          }
-        });
-      }
-
-      return appointments;
     };
 
     fetchAppointments();

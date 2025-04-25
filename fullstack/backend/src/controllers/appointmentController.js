@@ -17,10 +17,36 @@ const getAllAppointments = async (req, res) => {
 const getDoctorAppointments = async (req, res) => {
   try {
     const { doctorId } = req.params;
-    const appointments = await appointmentService.getDoctorAppointments(doctorId);
-    res.status(200).json(appointments);
+
+    if (!doctorId) {
+      console.error('[Backend] Missing doctorId parameter in getDoctorAppointments');
+      return res.status(400).json({
+        error: 'Doctor ID is required',
+        appointments: [],
+        count: 0
+      });
+    }
+
+    console.log(`[Backend] Getting appointments for doctor ID: ${doctorId}`);
+    const result = await appointmentService.getDoctorAppointments(doctorId);
+
+    // Verificar si hay un error en la respuesta
+    if (result.error) {
+      console.warn(`[Backend] Service returned error: ${result.error}`);
+      // Devolvemos código 200 con los datos de error para que el frontend pueda manejarlos
+      return res.status(200).json(result);
+    }
+
+    console.log(`[Backend] Successfully retrieved ${result.count} appointments for doctor ${doctorId}`);
+    return res.status(200).json(result);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('[Backend] Error in getDoctorAppointments controller:', error);
+    // Siempre devolver una estructura consistente incluso en caso de error
+    return res.status(200).json({
+      appointments: [],
+      count: 0,
+      error: 'Error interno del servidor al obtener citas'
+    });
   }
 };
 

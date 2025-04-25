@@ -50,9 +50,18 @@ const getAllAppointments = async () => {
  */
 const getDoctorAppointments = async (doctorId) => {
   try {
+    console.log(`[Backend] Getting appointments for doctor ID: ${doctorId}`);
+
+    // Convertir doctorId a entero
+    const doctorIdInt = parseInt(doctorId);
+    if (isNaN(doctorIdInt)) {
+      console.error(`[Backend] Invalid doctor ID: ${doctorId}`);
+      throw new Error(`Invalid doctor ID: ${doctorId}`);
+    }
+
     const appointments = await prisma.appointment.findMany({
       where: {
-        doctorId: parseInt(doctorId)
+        doctorId: doctorIdInt
       },
       include: {
         patient: {
@@ -66,11 +75,44 @@ const getDoctorAppointments = async (doctorId) => {
             }
           }
         }
+      },
+      orderBy: {
+        date: 'asc'
       }
     });
-    return appointments;
+
+    console.log(`[Backend] Found ${appointments.length} appointments for doctor ID: ${doctorIdInt}`);
+
+    // Formatear las citas para el frontend
+    const formattedAppointments = appointments.map(appointment => ({
+      id: appointment.id,
+      date: appointment.date,
+      status: appointment.status,
+      reason: appointment.reason || '',
+      notes: appointment.notes || '',
+      patient: {
+        id: appointment.patient.id,
+        phone: appointment.patient.phone || '',
+        birthDate: appointment.patient.birthDate,
+        user: {
+          id: appointment.patient.user.id,
+          name: appointment.patient.user.name,
+          email: appointment.patient.user.email
+        }
+      }
+    }));
+
+    return {
+      appointments: formattedAppointments,
+      count: appointments.length
+    };
   } catch (error) {
-    throw new Error(`Error fetching doctor appointments: ${error.message}`);
+    console.error(`[Backend] Error fetching doctor appointments: ${error.message}`);
+    return {
+      appointments: [],
+      count: 0,
+      error: error.message
+    };
   }
 };
 
