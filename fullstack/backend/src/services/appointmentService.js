@@ -455,6 +455,7 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
     }
 
     console.log(`[Backend] Slots por defecto: ${defaultSlots.join(', ')}`);
+    console.log(`[Backend] Total de slots por defecto: ${defaultSlots.length}`);
 
     // Mapeo de slots a horas para depuración
     const slotToHourMap = {};
@@ -462,7 +463,12 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
       const hour = getHourFromSlotId(slotId);
       slotToHourMap[slotId] = hour;
     });
-    console.log('[Backend] Mapeo de slots a horas:', slotToHourMap);
+
+    // Mostrar el mapeo de slots a horas de forma más legible
+    console.log('[Backend] Mapeo de slots a horas:');
+    Object.keys(slotToHourMap).forEach(slotId => {
+      console.log(`[Backend] - ${slotId}: ${slotToHourMap[slotId]}`);
+    });
 
     // Crear un mapa de slots con información detallada
     const slotsInfo = {};
@@ -482,6 +488,19 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
     // Aplicar la configuración del doctor
     console.log(`[Backend] Procesando ${doctorSchedule.length} entradas de horario del doctor`);
 
+    // Verificar si hay entradas para todos los slots
+    const slotIds = Object.keys(slotsInfo);
+    console.log(`[Backend] Total de slots en slotsInfo: ${slotIds.length}`);
+
+    // Verificar qué slots están configurados por el doctor
+    const configuredSlots = doctorSchedule.map(schedule => schedule.slotId);
+    console.log(`[Backend] Slots configurados por el doctor: ${configuredSlots.join(', ')}`);
+
+    // Verificar si hay slots que no están configurados por el doctor
+    const unconfiguredSlots = slotIds.filter(slotId => !configuredSlots.includes(slotId));
+    console.log(`[Backend] Slots no configurados por el doctor: ${unconfiguredSlots.join(', ')}`);
+
+    // Procesar cada entrada de horario del doctor
     doctorSchedule.forEach(schedule => {
       const normalizedSlotId = normalizeSlotId(schedule.slotId);
       console.log(`[Backend] Procesando slot: ${schedule.slotId} -> normalizado: ${normalizedSlotId}, disponible: ${schedule.available}, fecha: ${schedule.date.toISOString()}`);
@@ -495,21 +514,37 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
           slotsInfo[normalizedSlotId].status = 'available';
           console.log(`[Backend] Slot ${normalizedSlotId} marcado como disponible`);
         } else {
+          slotsInfo[normalizedSlotId].status = 'unavailable';
           console.log(`[Backend] Slot ${normalizedSlotId} marcado como no disponible`);
         }
       } else {
         console.log(`[Backend] ADVERTENCIA: Slot ${normalizedSlotId} no encontrado en slotsInfo`);
+
+        // Crear el slot si no existe
+        slotsInfo[normalizedSlotId] = {
+          id: normalizedSlotId,
+          hour: getHourFromSlotId(normalizedSlotId),
+          configuredByDoctor: true,
+          available: schedule.available,
+          status: schedule.available ? 'available' : 'unavailable',
+          reservedByPatient: null
+        };
+
+        console.log(`[Backend] Slot ${normalizedSlotId} creado con estado: ${slotsInfo[normalizedSlotId].status}`);
       }
     });
 
     // Mostrar un resumen de los slots disponibles
     console.log('[Backend] Resumen de slots disponibles:');
+    let availableCount = 0;
     Object.keys(slotsInfo).forEach(slotId => {
       const info = slotsInfo[slotId];
       if (info.status === 'available') {
+        availableCount++;
         console.log(`[Backend] - Slot ${slotId}: ${info.hour} (configurado: ${info.configuredByDoctor}, disponible: ${info.available})`);
       }
     });
+    console.log(`[Backend] Total de slots disponibles: ${availableCount} de ${Object.keys(slotsInfo).length}`);
 
     // Aplicar las citas existentes
     existingAppointments.forEach(appointment => {
@@ -613,6 +648,10 @@ const getHourFromSlotId = (slotId) => {
   }
 
   const slotNumber = parseInt(match[1]);
+
+  // Corregir el mapeo de slots a horas
+  // Bloque_1 -> 8:00, Bloque_2 -> 9:00, etc.
+  // Bloque_8 -> 15:00, Bloque_9 -> 16:00, etc.
   const startHour = slotNumber + 7; // Bloque_1 -> 8:00, Bloque_2 -> 9:00, etc.
   const endHour = startHour + 1;
 

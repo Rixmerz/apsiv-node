@@ -295,6 +295,17 @@ const DoctorScheduleManagementPage = () => {
     // Mostrar todos los slots disponibles para esta fecha
     if (dateExists) {
       console.log(`Slots para fecha ${dateStr}:`, availableSlots[dateStr]);
+
+      // Contar cuántos slots están disponibles
+      const availableCount = Object.values(availableSlots[dateStr]).filter(Boolean).length;
+      console.log(`Slots disponibles para ${dateStr}: ${availableCount} de ${Object.keys(availableSlots[dateStr]).length}`);
+
+      // Mostrar los slots disponibles
+      Object.keys(availableSlots[dateStr]).forEach(id => {
+        if (availableSlots[dateStr][id]) {
+          console.log(`- Slot disponible: ${id}`);
+        }
+      });
     } else {
       console.log(`La fecha ${dateStr} no existe en el estado. Inicializando...`);
     }
@@ -329,6 +340,13 @@ const DoctorScheduleManagementPage = () => {
       // Asignar el nuevo valor
       newSlots[dateStr][slotId] = newValue;
 
+      // Mostrar el estado actualizado
+      console.log(`Estado actualizado para ${dateStr}, slot ${slotId}: ${newValue}`);
+
+      // Contar cuántos slots están disponibles después de la actualización
+      const availableCount = Object.values(newSlots[dateStr]).filter(Boolean).length;
+      console.log(`Slots disponibles para ${dateStr} después de la actualización: ${availableCount} de ${Object.keys(newSlots[dateStr]).length}`);
+
       return newSlots;
     });
   };
@@ -362,11 +380,24 @@ const DoctorScheduleManagementPage = () => {
           if (availableSlots[dateStr]) {
             convertedSlots[dateStr] = {};
 
+            // Contar cuántos slots están disponibles
+            const availableCount = Object.values(availableSlots[dateStr]).filter(Boolean).length;
+            console.log(`Slots disponibles para ${dateStr}: ${availableCount} de ${Object.keys(availableSlots[dateStr]).length}`);
+
+            // Mostrar los slots disponibles
+            console.log(`Slots disponibles para ${dateStr}:`);
+            Object.keys(availableSlots[dateStr]).forEach(id => {
+              if (availableSlots[dateStr][id]) {
+                console.log(`- ${id}`);
+              }
+            });
+
             // Recorrer todos los slots de cada fecha
             Object.keys(availableSlots[dateStr]).forEach(slotId => {
               // Convertir el ID del slot de slot_X a Bloque_X
               const backendSlotId = normalizeSlotId(slotId);
               convertedSlots[dateStr][backendSlotId] = availableSlots[dateStr][slotId];
+              console.log(`Convirtiendo ${slotId} -> ${backendSlotId}, disponible: ${availableSlots[dateStr][slotId]}`);
             });
           } else {
             console.log(`No hay datos para la fecha ${dateStr}, inicializando como no disponibles`);
@@ -376,6 +407,7 @@ const DoctorScheduleManagementPage = () => {
             timeSlots.forEach(slot => {
               const backendSlotId = normalizeSlotId(slot.id);
               convertedSlots[dateStr][backendSlotId] = false;
+              console.log(`Inicializando ${slot.id} -> ${backendSlotId} como no disponible`);
             });
           }
         });
