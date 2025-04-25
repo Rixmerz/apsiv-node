@@ -195,8 +195,8 @@ const AppointmentPage = () => {
     setLoading(true);
 
     try {
-      // Para demo, usamos el primer doctor disponible (ID 1)
-      const doctorId = 1;
+      // Para demo, usamos el doctor con ID 2 según la base de datos
+      const doctorId = 2;
 
       // Normalizar el ID del slot para el backend
       const backendSlotId = normalizeSlotId(selectedSlot);
@@ -311,8 +311,8 @@ const AppointmentPage = () => {
       const dateStr = formatDateForApi(dateObj);
       console.log(`Iniciando fetchAvailableSlots para fecha ${dateStr}`);
 
-      // Usar un ID de doctor fijo para demo
-      const doctorId = 1;
+      // Usar un ID de doctor fijo para demo (ID 2 según la base de datos)
+      const doctorId = 2;
 
       // Agregar logs detallados antes de la llamada API
       console.log(`Preparando petición API: GET /api/appointments/available-slots/${doctorId}/${dateStr}`);
