@@ -600,9 +600,9 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
       };
     });
 
-    // Contar cuántos slots están disponibles
-    const availableCount = Object.values(frontendSlotsInfo).filter(info => info.status === 'available').length;
-    console.log(`[Backend] Slots disponibles después de la conversión: ${availableCount}`);
+    // Contar cuántos slots están disponibles después de la conversión
+    const frontendAvailableCount = Object.values(frontendSlotsInfo).filter(info => info.status === 'available').length;
+    console.log(`[Backend] Slots disponibles después de la conversión: ${frontendAvailableCount}`);
 
     // Verificar si hay al menos un slot disponible
     const hasAvailableSlots = Object.values(availableSlots).some(isAvailable => isAvailable === true);
@@ -616,7 +616,7 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
       reservedSlots: reservedSlots,           // Slots reservados con info del paciente
       allSlots: allSlots,                     // Todos los slots con su estado
       hasAvailableSlots: hasAvailableSlots,   // Indicador de si hay slots disponibles
-      availableCount: availableCount          // Número de slots disponibles
+      availableCount: frontendAvailableCount  // Número de slots disponibles
     };
   } catch (error) {
     console.error(`[Backend] Error in getAvailableSlotsForDate: ${error.message}`);
