@@ -801,38 +801,56 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
     // Convertir los IDs de slots del formato del backend al formato del frontend
     const frontendSlotsInfo = {};
 
-    // Fill the arrays with unique frontend slot IDs
-    // First, group slots by their frontend ID to avoid duplicates
-    const slotsByFrontendId = {};
+    // Process slots for frontend
+    // We need to handle the case where we have both block_X and Bloque_X for the same slot
+
+    // First, group slots by their slot number to avoid duplicates
+    const slotsByNumber = {};
 
     Object.keys(slotsInfo).forEach(slotId => {
       const info = slotsInfo[slotId];
-      const frontendSlotId = denormalizeSlotId(slotId);
+      let slotNumber = null;
 
-      // If we already have this frontend ID, only keep the one with more information
-      if (slotsByFrontendId[frontendSlotId]) {
+      // Extract the slot number
+      if (slotId.startsWith('block_')) {
+        slotNumber = parseInt(slotId.replace('block_', ''));
+      } else if (slotId.startsWith('Bloque_')) {
+        slotNumber = parseInt(slotId.replace('Bloque_', ''));
+      } else if (slotId.startsWith('slot_')) {
+        slotNumber = parseInt(slotId.replace('slot_', ''));
+      }
+
+      if (slotNumber === null || isNaN(slotNumber)) {
+        console.warn(`[Backend] Could not extract slot number from ${slotId}, skipping`);
+        return; // Skip this slot
+      }
+
+      // If we already have this slot number, merge the information
+      if (slotsByNumber[slotNumber]) {
         // Prefer slots that are configured by the doctor
-        if (!slotsByFrontendId[frontendSlotId].configuredByDoctor && info.configuredByDoctor) {
-          slotsByFrontendId[frontendSlotId] = info;
+        if (!slotsByNumber[slotNumber].configuredByDoctor && info.configuredByDoctor) {
+          slotsByNumber[slotNumber] = info;
         }
         // Prefer slots that are reserved
-        else if (slotsByFrontendId[frontendSlotId].status !== 'reserved' && info.status === 'reserved') {
-          slotsByFrontendId[frontendSlotId] = info;
+        else if (slotsByNumber[slotNumber].status !== 'reserved' && info.status === 'reserved') {
+          slotsByNumber[slotNumber] = info;
         }
         // Prefer slots that are available
-        else if (slotsByFrontendId[frontendSlotId].status !== 'available' && info.status === 'available') {
-          slotsByFrontendId[frontendSlotId] = info;
+        else if (slotsByNumber[slotNumber].status !== 'available' && info.status === 'available') {
+          slotsByNumber[slotNumber] = info;
         }
       } else {
-        slotsByFrontendId[frontendSlotId] = info;
+        slotsByNumber[slotNumber] = info;
       }
     });
 
-    // Now process the unique frontend slots
-    Object.keys(slotsByFrontendId).forEach(frontendSlotId => {
-      const info = slotsByFrontendId[frontendSlotId];
+    // Now process the unique slots by number
+    Object.keys(slotsByNumber).forEach(slotNumber => {
+      const info = slotsByNumber[slotNumber];
+      const frontendSlotId = `slot_${slotNumber}`;
+      const backendSlotId = `block_${slotNumber}`;
 
-      console.log(`[Backend] Processing frontend slot ${frontendSlotId}: status=${info.status}, available=${info.available}, configuredByDoctor=${info.configuredByDoctor}`);
+      console.log(`[Backend] Processing slot ${slotNumber}: status=${info.status}, available=${info.available}, configuredByDoctor=${info.configuredByDoctor}`);
 
       // For availability view (compatible with previous format)
       availableSlots[frontendSlotId] = info.available;
@@ -861,8 +879,8 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
     const frontendAvailableCount = Object.values(frontendSlotsInfo).filter(info => info.status === 'available').length;
     console.log(`[Backend] Slots disponibles después de la conversión: ${frontendAvailableCount}`);
 
-    // Verificar si hay al menos un slot disponible
-    const hasAvailableSlots = Object.values(availableSlots).some(isAvailable => isAvailable === true);
+    // Check if there is at least one available slot
+    const hasAvailableSlots = Object.values(frontendSlotsInfo).some(info => info.status === 'available' && info.available === true);
     console.log(`[Backend] Has available slots: ${hasAvailableSlots}`);
 
     // Devolver la respuesta con información detallada
