@@ -116,8 +116,16 @@ const updateDoctorSchedule = async (doctorId, availableSlots) => {
           }
 
           // Create start and end of day for the date
-          const startDate = new Date(dateStr + 'T00:00:00');
-          const endDate = new Date(dateStr + 'T23:59:59');
+          // Asegurarnos de que la fecha se maneje correctamente
+          const dateParts = dateStr.split('-');
+          const year = parseInt(dateParts[0]);
+          const month = parseInt(dateParts[1]) - 1; // Los meses en JavaScript son 0-indexed
+          const day = parseInt(dateParts[2]);
+
+          const startDate = new Date(year, month, day, 0, 0, 0);
+          const endDate = new Date(year, month, day, 23, 59, 59);
+
+          console.log(`[Backend] Date parts: year=${year}, month=${month}, day=${day}`);
 
           console.log(`Eliminando entradas existentes para la fecha ${dateStr} (${startDate.toISOString()} - ${endDate.toISOString()})`);
 

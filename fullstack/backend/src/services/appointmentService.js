@@ -393,8 +393,16 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
     console.log(`[Backend] Doctor found: ${JSON.stringify(doctor)}`);
 
     // Obtener la configuración del doctor para esta fecha
-    const startDate = new Date(dateStr + 'T00:00:00');
-    const endDate = new Date(dateStr + 'T23:59:59');
+    // Asegurarnos de que la fecha se maneje correctamente
+    const dateParts = dateStr.split('-');
+    const year = parseInt(dateParts[0]);
+    const month = parseInt(dateParts[1]) - 1; // Los meses en JavaScript son 0-indexed
+    const day = parseInt(dateParts[2]);
+
+    const startDate = new Date(year, month, day, 0, 0, 0);
+    const endDate = new Date(year, month, day, 23, 59, 59);
+
+    console.log(`[Backend] Date parts: year=${year}, month=${month}, day=${day}`);
     console.log(`[Backend] Searching for doctor schedule between ${startDate.toISOString()} and ${endDate.toISOString()}`);
 
     const doctorSchedule = await prisma.doctorSchedule.findMany({
@@ -414,6 +422,7 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
 
     // Obtener las citas existentes para esta fecha
     console.log(`[Backend] Searching for existing appointments on ${dateStr}`);
+    console.log(`[Backend] Using date range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
     const existingAppointments = await prisma.appointment.findMany({
       where: {
         doctorId: doctorIdInt,

@@ -353,10 +353,13 @@ const PatientAppointmentBookingPage = () => {
             const isAvailable = slot.available;
             const isSelected = selectedSlot === slotId;
 
-            // No mostrar slots no configurados o no disponibles
-            if (!slot.configuredByDoctor || slot.status !== 'available') {
+            // Solo mostrar slots disponibles
+            if (slot.status !== 'available') {
               return null;
             }
+
+            // Agregar log para depuración
+            console.log(`Slot ${slotId}: configuredByDoctor=${slot.configuredByDoctor}, status=${slot.status}, available=${slot.available}`);
 
             return (
               <button
