@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import api from '../api/axios';
-import { format, addDays, isSameDay, addWeeks, subWeeks } from 'date-fns';
+import { format, addDays, isSameDay, addWeeks, subWeeks, isBefore, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import Navbar from '../components/common/Navbar';
 import Footer from '../components/common/Footer';
@@ -52,6 +52,19 @@ const DoctorScheduleManagementPage = () => {
 
   // Nota: Ahora usamos las funciones de normalización importadas de utils/slotUtils.js
 
+  // Función para verificar si una fecha es pasada (anterior a la fecha de referencia)
+  const isPastDate = (date) => {
+    // Usamos el 24 de abril de 2025 como fecha de referencia "actual"
+    const referenceDate = new Date(2025, 3, 24); // 24 de abril de 2025
+
+    // Normalizar las fechas para comparar solo año, mes y día
+    const normalizedDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const normalizedReference = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), referenceDate.getDate());
+
+    // Verificar si la fecha es anterior a la fecha de referencia
+    return isBefore(normalizedDate, normalizedReference);
+  };
+
   // Generar los días de la semana actual
   // Usamos useMemo para evitar recalcular en cada renderizado
   const weekDays = useMemo(() => {
@@ -67,15 +80,17 @@ const DoctorScheduleManagementPage = () => {
       const dateStr = format(day, 'yyyy-MM-dd');
       const dayOfWeek = day.getDay(); // 0 = domingo, 1 = lunes, ..., 6 = sábado
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Sábado o domingo
+      const isPast = isPastDate(day); // Verificar si es una fecha pasada
 
-      console.log(`Día ${i+1} de la semana: ${dateStr}, día de la semana: ${dayOfWeek}, ¿es fin de semana? ${isWeekend}`);
+      console.log(`Día ${i+1} de la semana: ${dateStr}, día de la semana: ${dayOfWeek}, ¿es fin de semana? ${isWeekend}, ¿es pasado? ${isPast}`);
 
       return {
         date: day,
         dayName: format(day, 'EEEE', { locale: es }),
         dayNumber: format(day, 'd', { locale: es }),
         month: format(day, 'MMMM', { locale: es }),
-        isWeekend: isWeekend
+        isWeekend: isWeekend,
+        isPast: isPast
       };
     });
   }, [currentWeek]);
@@ -261,6 +276,18 @@ const DoctorScheduleManagementPage = () => {
     // El slotId ya viene en formato frontend (slot_X)
     console.log(`Cambiando disponibilidad para ${dateStr}, slot ${slotId}`);
 
+    // Verificar si la fecha es pasada
+    const date = new Date(dateStr);
+    if (isPastDate(date)) {
+      console.log(`No se puede modificar una fecha pasada: ${dateStr}`);
+      setToast({
+        message: 'No se pueden modificar horarios de fechas pasadas',
+        type: 'warning',
+        duration: 3000
+      });
+      return;
+    }
+
     // Verificar si la fecha existe en el estado
     const dateExists = dateStr in availableSlots;
     console.log(`¿La fecha ${dateStr} existe en el estado? ${dateExists}`);
@@ -310,7 +337,7 @@ const DoctorScheduleManagementPage = () => {
   const saveChanges = async () => {
     try {
       setLoading(true);
-      console.log('Guardando horarios disponibles:', availableSlots);
+      console.log('Guardando horarios disponibles para la semana actual');
 
       if (!user || !user.doctorProfile) {
         throw new Error('No se encontró el perfil de doctor');
@@ -322,16 +349,35 @@ const DoctorScheduleManagementPage = () => {
         // Convertir los IDs de slots del formato del frontend al formato del backend
         const convertedSlots = {};
 
-        // Recorrer todas las fechas
-        Object.keys(availableSlots).forEach(dateStr => {
-          convertedSlots[dateStr] = {};
+        // Obtener las fechas de la semana actual (excluyendo fines de semana)
+        const currentWeekDates = weekDays
+          .filter(day => !day.isWeekend)
+          .map(day => format(day.date, 'yyyy-MM-dd'));
 
-          // Recorrer todos los slots de cada fecha
-          Object.keys(availableSlots[dateStr]).forEach(slotId => {
-            // Convertir el ID del slot de slot_X a Bloque_X
-            const backendSlotId = normalizeSlotId(slotId);
-            convertedSlots[dateStr][backendSlotId] = availableSlots[dateStr][slotId];
-          });
+        console.log('Fechas de la semana actual a guardar:', currentWeekDates);
+
+        // Recorrer solo las fechas de la semana actual
+        currentWeekDates.forEach(dateStr => {
+          // Verificar si tenemos datos para esta fecha
+          if (availableSlots[dateStr]) {
+            convertedSlots[dateStr] = {};
+
+            // Recorrer todos los slots de cada fecha
+            Object.keys(availableSlots[dateStr]).forEach(slotId => {
+              // Convertir el ID del slot de slot_X a Bloque_X
+              const backendSlotId = normalizeSlotId(slotId);
+              convertedSlots[dateStr][backendSlotId] = availableSlots[dateStr][slotId];
+            });
+          } else {
+            console.log(`No hay datos para la fecha ${dateStr}, inicializando como no disponibles`);
+            convertedSlots[dateStr] = {};
+
+            // Inicializar todos los slots como no disponibles
+            timeSlots.forEach(slot => {
+              const backendSlotId = normalizeSlotId(slot.id);
+              convertedSlots[dateStr][backendSlotId] = false;
+            });
+          }
         });
 
         // Intentar hacer la llamada a la API real
@@ -427,14 +473,17 @@ const DoctorScheduleManagementPage = () => {
                             className={`p-3 border text-center ${
                               day.isWeekend
                                 ? 'bg-gray-200 text-gray-500'
-                                : isSameDay(day.date, new Date(2025, 3, 24))
-                                  ? 'bg-primary-light/20'
-                                  : 'bg-gray-100'
+                                : day.isPast
+                                  ? 'bg-gray-300 text-gray-600'
+                                  : isSameDay(day.date, new Date(2025, 3, 24))
+                                    ? 'bg-primary-light/20'
+                                    : 'bg-gray-100'
                             }`}
                           >
                             <div className="font-bold capitalize">{day.dayName}</div>
                             <div>{day.dayNumber} de {day.month}</div>
                             {day.isWeekend && <div className="text-xs text-gray-500">Fin de semana</div>}
+                            {day.isPast && !day.isWeekend && <div className="text-xs text-gray-600">Fecha pasada</div>}
                           </th>
                         ))}
                       </tr>
@@ -479,6 +528,18 @@ const DoctorScheduleManagementPage = () => {
                                   className="p-3 border text-center bg-gray-200"
                                 >
                                   <div className="text-gray-500">Fin de semana</div>
+                                </td>
+                              );
+                            }
+
+                            // Si es una fecha pasada, mostrar como no disponible
+                            if (day.isPast) {
+                              return (
+                                <td
+                                  key={dayIndex}
+                                  className="p-3 border text-center bg-gray-300"
+                                >
+                                  <div className="text-gray-600">Fecha pasada</div>
                                 </td>
                               );
                             }
