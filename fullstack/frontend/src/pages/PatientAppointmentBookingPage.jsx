@@ -358,7 +358,25 @@ const PatientAppointmentBookingPage = () => {
     if (!selectedDate || !availableSlots.slotsInfo) return null;
 
     const slots = availableSlots.slotsInfo;
-    const slotIds = Object.keys(slots).sort();
+    const slotIds = Object.keys(slots).sort((a, b) => {
+      // Ordenar por número de slot (slot_1, slot_2, etc.)
+      const numA = parseInt(a.replace('slot_', ''));
+      const numB = parseInt(b.replace('slot_', ''));
+      return numA - numB;
+    });
+
+    // Contar cuántos slots están disponibles
+    const availableCount = slotIds.filter(slotId => slots[slotId].status === 'available').length;
+    console.log(`Renderizando ${slotIds.length} slots, ${availableCount} disponibles`);
+
+    // Mostrar todos los slots disponibles
+    console.log('Slots disponibles:');
+    slotIds.forEach(slotId => {
+      const slot = slots[slotId];
+      if (slot.status === 'available') {
+        console.log(`- ${slotId}: ${slot.hour}`);
+      }
+    });
 
     return (
       <div className="mt-6">
@@ -366,19 +384,25 @@ const PatientAppointmentBookingPage = () => {
           Horarios disponibles para el {format(selectedDate, 'd MMMM yyyy', { locale: es })}
         </h3>
 
+        <div className="mb-2">
+          <p className="text-sm text-gray-600">
+            {availableCount} horarios disponibles
+          </p>
+        </div>
+
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
           {slotIds.map(slotId => {
             const slot = slots[slotId];
-            const isAvailable = slot.available;
+            const isAvailable = slot.status === 'available';
             const isSelected = selectedSlot === slotId;
 
             // Solo mostrar slots disponibles
-            if (slot.status !== 'available') {
+            if (!isAvailable) {
               return null;
             }
 
             // Agregar log para depuración
-            console.log(`Slot ${slotId}: configuredByDoctor=${slot.configuredByDoctor}, status=${slot.status}, available=${slot.available}`);
+            console.log(`Renderizando slot ${slotId}: configuredByDoctor=${slot.configuredByDoctor}, status=${slot.status}, available=${slot.available}`);
 
             return (
               <button
@@ -386,26 +410,16 @@ const PatientAppointmentBookingPage = () => {
                 className={`p-3 rounded border ${
                   isSelected
                     ? 'bg-primary text-white border-primary'
-                    : isAvailable
-                      ? 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200'
-                      : 'bg-red-100 text-red-800 border-red-200 cursor-not-allowed'
+                    : 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200'
                 }`}
-                onClick={() => {
-                  if (isAvailable) {
-                    handleSlotSelect(slotId);
-                  }
-                }}
-                disabled={!isAvailable}
+                onClick={() => handleSlotSelect(slotId)}
               >
                 {slot.hour}
               </button>
             );
           })}
 
-          {slotIds.filter(slotId => {
-            const slot = slots[slotId];
-            return slot.status === 'available';
-          }).length === 0 && (
+          {availableCount === 0 && (
             <div className="col-span-full text-center py-4 text-gray-500">
               No hay horarios disponibles para esta fecha
             </div>
