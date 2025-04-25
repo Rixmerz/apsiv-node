@@ -154,18 +154,90 @@ const getPatientAppointments = async (patientId) => {
  */
 const createAppointment = async (appointmentData) => {
   try {
-    const { date, notes, doctorId, patientId, status = 'scheduled' } = appointmentData;
+    const { date, notes, doctorId, patientId, slotId, status = 'scheduled' } = appointmentData;
 
+    // Convertir doctorId a entero
+    const doctorIdInt = parseInt(doctorId);
+    if (isNaN(doctorIdInt)) {
+      throw new Error(`Invalid doctor ID: ${doctorId}`);
+    }
+
+    // Convertir patientId a entero
+    const patientIdInt = parseInt(patientId);
+    if (isNaN(patientIdInt)) {
+      throw new Error(`Invalid patient ID: ${patientId}`);
+    }
+
+    // Validar la fecha
+    const appointmentDate = new Date(date);
+    if (isNaN(appointmentDate.getTime())) {
+      throw new Error(`Invalid date format: ${date}`);
+    }
+
+    // Extraer la fecha en formato YYYY-MM-DD
+    const dateStr = appointmentDate.toISOString().split('T')[0];
+
+    // Verificar si el slot está disponible
+    console.log(`[Backend] Verificando disponibilidad para doctor ${doctorIdInt} en fecha ${dateStr}`);
+    const availabilityInfo = await getAvailableSlotsForDate(doctorIdInt, dateStr);
+
+    // Normalizar el ID del slot si se proporciona
+    let normalizedSlotId = null;
+    if (slotId) {
+      normalizedSlotId = normalizeSlotId(slotId);
+      console.log(`[Backend] Slot ID normalizado: ${normalizedSlotId}`);
+    } else {
+      // Si no se proporciona un slotId, extraerlo de la hora de la cita
+      const hour = appointmentDate.getHours();
+      const slotIndex = hour - 7; // 8:00 -> 1, 9:00 -> 2, etc.
+      normalizedSlotId = `Bloque_${slotIndex}`;
+      console.log(`[Backend] Slot ID calculado de la hora: ${normalizedSlotId}`);
+    }
+
+    // Verificar si el slot existe y está disponible
+    if (!availabilityInfo.slotsInfo[normalizedSlotId]) {
+      throw new Error(`Slot ${normalizedSlotId} no existe para esta fecha`);
+    }
+
+    const slotInfo = availabilityInfo.slotsInfo[normalizedSlotId];
+    console.log(`[Backend] Información del slot: ${JSON.stringify(slotInfo)}`);
+
+    if (!slotInfo.configuredByDoctor) {
+      throw new Error(`El doctor no ha configurado este horario como disponible`);
+    }
+
+    if (!slotInfo.available) {
+      if (slotInfo.status === 'reserved') {
+        throw new Error(`Este horario ya está reservado por otro paciente`);
+      } else {
+        throw new Error(`Este horario no está disponible`);
+      }
+    }
+
+    // Si llegamos aquí, el slot está disponible, podemos crear la cita
+    console.log(`[Backend] Creando cita para doctor ${doctorIdInt}, paciente ${patientIdInt}, fecha ${dateStr}, slot ${normalizedSlotId}`);
+
+    // Ajustar la hora de la cita según el slot
+    const slotNumber = parseInt(normalizedSlotId.replace('Bloque_', ''));
+    const appointmentHour = slotNumber + 7; // Bloque_1 -> 8:00, Bloque_2 -> 9:00, etc.
+
+    // Crear una nueva fecha con la hora correcta
+    const finalDate = new Date(dateStr);
+    finalDate.setHours(appointmentHour, 0, 0, 0);
+
+    console.log(`[Backend] Fecha final de la cita: ${finalDate.toISOString()}`);
+
+    // Crear la cita
     const appointment = await prisma.appointment.create({
       data: {
-        date: new Date(date),
+        date: finalDate,
         notes,
         status,
         doctor: {
-          connect: { id: parseInt(doctorId) }
+          connect: { id: doctorIdInt }
         },
         patient: {
-          connect: { id: parseInt(patientId) }
+          connect: { id: patientIdInt }
         }
       },
       include: {
@@ -194,9 +266,19 @@ const createAppointment = async (appointmentData) => {
       }
     });
 
-    return appointment;
+    console.log(`[Backend] Cita creada con éxito: ${JSON.stringify(appointment)}`);
+
+    return {
+      success: true,
+      appointment,
+      message: 'Cita creada con éxito'
+    };
   } catch (error) {
-    throw new Error(`Error creating appointment: ${error.message}`);
+    console.error(`[Backend] Error creating appointment: ${error.message}`);
+    return {
+      success: false,
+      error: error.message
+    };
   }
 };
 
@@ -339,6 +421,18 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
           gte: startDate,
           lt: endDate
         }
+      },
+      include: {
+        patient: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
+        }
       }
     });
 
@@ -347,71 +441,98 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
       console.log(`[Backend] Sample appointment: ${JSON.stringify(existingAppointments[0])}`);
     }
 
-    // Crear un mapa de slots con su disponibilidad
-    const availableSlots = {};
+    // Definir los slots por defecto (8:00 AM a 6:00 PM)
+    const defaultSlots = Array.from({ length: 11 }, (_, i) => {
+      const hour = i + 8;
+      return `Bloque_${hour - 7}`; // Bloque_1 para 8:00, Bloque_2 para 9:00, etc.
+    });
 
-    // Definir los slots por defecto
-    const defaultSlots = [
-      'Bloque_1', 'Bloque_2', 'Bloque_3', 'Bloque_4',
-      'Bloque_5', 'Bloque_6', 'Bloque_7', 'Bloque_8'
-    ];
+    // Crear un mapa de slots con información detallada
+    const slotsInfo = {};
 
-    // Inicializar todos los slots como no disponibles por defecto
-    // Esto es importante para que solo se muestren los slots que el doctor ha marcado explícitamente como disponibles
+    // Inicializar todos los slots como no configurados por defecto
     defaultSlots.forEach(slotId => {
-      availableSlots[slotId] = false;
+      slotsInfo[slotId] = {
+        id: slotId,
+        hour: getHourFromSlotId(slotId),
+        available: false,                // Si está disponible para reservar
+        configuredByDoctor: false,       // Si el doctor lo ha configurado
+        reservedByPatient: null,         // Información del paciente si está reservado
+        status: 'unavailable'            // Estado: 'available', 'reserved', 'unavailable'
+      };
     });
 
-    // Aplicar la configuración del doctor - Solo marcar como disponibles los que el doctor ha configurado como disponibles
+    // Aplicar la configuración del doctor
     doctorSchedule.forEach(schedule => {
-      // Normalizar el ID del slot para asegurar consistencia
       const normalizedSlotId = normalizeSlotId(schedule.slotId);
-      availableSlots[normalizedSlotId] = schedule.available;
-    });
 
-    // Crear una copia de los slots disponibles antes de aplicar las citas existentes
-    const doctorAvailableSlots = {...availableSlots};
+      if (slotsInfo[normalizedSlotId]) {
+        slotsInfo[normalizedSlotId].configuredByDoctor = true;
+        slotsInfo[normalizedSlotId].available = schedule.available;
 
-    // Marcar como no disponibles los slots que ya tienen citas (independientemente de la configuración del doctor)
-    existingAppointments.forEach(appointment => {
-      // Extraer el ID del slot de la fecha de la cita
-      const hour = appointment.date.getHours();
-      let slotId;
-
-      // Mapear la hora a un ID de slot
-      let rawSlotId;
-      if (hour >= 8 && hour < 10) rawSlotId = 'Bloque_1';
-      else if (hour >= 10 && hour < 12) rawSlotId = 'Bloque_2';
-      else if (hour >= 12 && hour < 14) rawSlotId = 'Bloque_3';
-      else if (hour >= 14 && hour < 16) rawSlotId = 'Bloque_4';
-      else if (hour >= 16 && hour < 18) rawSlotId = 'Bloque_5';
-      else if (hour >= 18 && hour < 20) rawSlotId = 'Bloque_6';
-      else if (hour >= 20 && hour < 22) rawSlotId = 'Bloque_7';
-      else rawSlotId = 'Bloque_8';
-
-      // Asegurarse de que el ID del slot esté normalizado
-      slotId = normalizeSlotId(rawSlotId);
-
-      // Marcar el slot como no disponible
-      if (slotId) {
-        // El slotId ya está normalizado en la línea anterior, no es necesario normalizarlo de nuevo
-        availableSlots[slotId] = false;
+        // Actualizar el estado basado en la configuración del doctor
+        if (schedule.available) {
+          slotsInfo[normalizedSlotId].status = 'available';
+        }
       }
     });
 
-    console.log(`[Backend] Doctor available slots: ${JSON.stringify(doctorAvailableSlots)}`);
-    console.log(`[Backend] Final available slots: ${JSON.stringify(availableSlots)}`);
+    // Aplicar las citas existentes
+    existingAppointments.forEach(appointment => {
+      const hour = appointment.date.getHours();
+      const slotIndex = hour - 7; // 8:00 -> 1, 9:00 -> 2, etc.
+      const slotId = `Bloque_${slotIndex}`;
+
+      if (slotsInfo[slotId]) {
+        // Marcar como reservado
+        slotsInfo[slotId].available = false;
+        slotsInfo[slotId].status = 'reserved';
+        slotsInfo[slotId].reservedByPatient = {
+          id: appointment.patientId,
+          name: appointment.patient?.user?.name || 'Paciente',
+          appointmentId: appointment.id
+        };
+      }
+    });
+
+    // Crear arrays separados para diferentes vistas
+    const availableSlots = {};
+    const reservedSlots = {};
+    const allSlots = {};
+
+    // Llenar los arrays
+    Object.keys(slotsInfo).forEach(slotId => {
+      const info = slotsInfo[slotId];
+
+      // Para la vista de disponibilidad (compatible con el formato anterior)
+      availableSlots[slotId] = info.available;
+
+      // Para la vista de reservas
+      if (info.status === 'reserved') {
+        reservedSlots[slotId] = info.reservedByPatient;
+      }
+
+      // Para la vista completa
+      allSlots[slotId] = {
+        id: info.id,
+        hour: info.hour,
+        status: info.status,
+        configuredByDoctor: info.configuredByDoctor
+      };
+    });
 
     // Verificar si hay al menos un slot disponible
     const hasAvailableSlots = Object.values(availableSlots).some(isAvailable => isAvailable === true);
     console.log(`[Backend] Has available slots: ${hasAvailableSlots}`);
 
-    // Incluir en la respuesta tanto los slots disponibles como los slots configurados por el doctor
+    // Devolver la respuesta con información detallada
     return {
       date: dateStr,
-      slots: availableSlots,
-      doctorAvailableSlots: doctorAvailableSlots,
-      hasAvailableSlots: hasAvailableSlots
+      slots: availableSlots,                  // Formato compatible con el anterior
+      slotsInfo: slotsInfo,                   // Información detallada de cada slot
+      reservedSlots: reservedSlots,           // Slots reservados con info del paciente
+      allSlots: allSlots,                     // Todos los slots con su estado
+      hasAvailableSlots: hasAvailableSlots    // Indicador de si hay slots disponibles
     };
   } catch (error) {
     console.error(`[Backend] Error in getAvailableSlotsForDate: ${error.message}`);
@@ -419,11 +540,30 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
     return {
       date: dateStr,
       slots: {},
-      doctorAvailableSlots: {},
+      slotsInfo: {},
+      reservedSlots: {},
+      allSlots: {},
       hasAvailableSlots: false,
       error: error.message
     };
   }
+};
+
+/**
+ * Helper function to get the hour from a slot ID
+ * @param {string} slotId - Slot ID (e.g., 'Bloque_1')
+ * @returns {string} Hour string (e.g., '8:00 - 9:00')
+ */
+const getHourFromSlotId = (slotId) => {
+  // Extract the number from the slot ID
+  const match = slotId.match(/Bloque_(\d+)/);
+  if (!match) return 'Hora desconocida';
+
+  const slotNumber = parseInt(match[1]);
+  const startHour = slotNumber + 7; // Bloque_1 -> 8:00, Bloque_2 -> 9:00, etc.
+  const endHour = startHour + 1;
+
+  return `${startHour}:00 - ${endHour}:00`;
 };
 
 module.exports = {

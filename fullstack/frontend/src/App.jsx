@@ -9,6 +9,8 @@ import AppointmentPage from './pages/AppointmentPage';
 import AppointmentConfirmationPage from './pages/AppointmentConfirmationPage';
 import DoctorSchedulePage from './pages/DoctorSchedulePage';
 import DoctorScheduleManagementPage from './pages/DoctorScheduleManagementPage';
+import PatientAppointmentBookingPage from './pages/PatientAppointmentBookingPage';
+import PatientAppointmentsPage from './pages/PatientAppointmentsPage';
 import AdminPatientsPage from './pages/AdminPatientsPage';
 import AdminAppointmentsPage from './pages/AdminAppointmentsPage';
 
@@ -52,6 +54,7 @@ function App() {
       <Route path="/register" element={<RegisterPage />} />
 
       {/* Protected Routes - role specific */}
+      {/* Patient Routes */}
       <Route path="/appointment" element={
         <ProtectedRoute patientOnly>
           <AppointmentPage />
@@ -61,6 +64,18 @@ function App() {
       <Route path="/appointment/confirmation" element={
         <ProtectedRoute patientOnly>
           <AppointmentConfirmationPage />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/patient/book-appointment" element={
+        <ProtectedRoute patientOnly>
+          <PatientAppointmentBookingPage />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/patient/appointments" element={
+        <ProtectedRoute patientOnly>
+          <PatientAppointmentsPage />
         </ProtectedRoute>
       } />
 

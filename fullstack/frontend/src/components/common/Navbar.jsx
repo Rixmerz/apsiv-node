@@ -43,9 +43,14 @@ const Navbar = () => {
             {isAuthenticated ? (
               <>
                 {user?.role === 'patient' && (
-                  <Link to="/appointment" className="text-lg font-medium hover:text-primary transition-colors">
-                    Agendar Hora
-                  </Link>
+                  <>
+                    <Link to="/patient/book-appointment" className="text-lg font-medium hover:text-primary transition-colors">
+                      Agendar Hora
+                    </Link>
+                    <Link to="/patient/appointments" className="text-lg font-medium hover:text-primary transition-colors">
+                      Mis Citas
+                    </Link>
+                  </>
                 )}
 
                 {user?.role === 'doctor' && (
@@ -139,13 +144,22 @@ const Navbar = () => {
             {isAuthenticated ? (
               <>
                 {user?.role === 'patient' && (
-                  <Link
-                    to="/appointment"
-                    className="block text-xl font-medium hover:text-primary transition-colors py-2"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Agendar Hora
-                  </Link>
+                  <>
+                    <Link
+                      to="/patient/book-appointment"
+                      className="block text-xl font-medium hover:text-primary transition-colors py-2"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      Agendar Hora
+                    </Link>
+                    <Link
+                      to="/patient/appointments"
+                      className="block text-xl font-medium hover:text-primary transition-colors py-2"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      Mis Citas
+                    </Link>
+                  </>
                 )}
 
                 {user?.role === 'doctor' && (

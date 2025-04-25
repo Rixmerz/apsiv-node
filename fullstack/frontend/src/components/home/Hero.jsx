@@ -21,7 +21,7 @@ const Hero = () => {
         <div className="flex flex-col sm:flex-row justify-center gap-4">
           <Link to={!isAuthenticated ? "/register" :
                     user?.role === 'doctor' ? "/doctor/schedule" :
-                    "/appointment"}>
+                    "/patient/book-appointment"}>
             <Button
               variant="primary"
               size="large"

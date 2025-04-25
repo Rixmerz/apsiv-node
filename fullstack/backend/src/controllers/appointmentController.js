@@ -65,10 +65,29 @@ const getPatientAppointments = async (req, res) => {
 const createAppointment = async (req, res) => {
   try {
     const appointmentData = req.body;
-    const appointment = await appointmentService.createAppointment(appointmentData);
-    res.status(201).json({ message: 'Appointment created successfully', appointment });
+    console.log('[Backend] Creating appointment with data:', appointmentData);
+
+    const result = await appointmentService.createAppointment(appointmentData);
+
+    if (result.success) {
+      res.status(201).json({
+        message: result.message || 'Cita creada con éxito',
+        appointment: result.appointment,
+        success: true
+      });
+    } else {
+      // Devolvemos un 400 con el mensaje de error
+      res.status(400).json({
+        error: result.error || 'Error al crear la cita',
+        success: false
+      });
+    }
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error('[Backend] Unexpected error in createAppointment controller:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor al crear la cita',
+      success: false
+    });
   }
 };
 
