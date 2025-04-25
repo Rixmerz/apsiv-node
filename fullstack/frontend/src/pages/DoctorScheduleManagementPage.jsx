@@ -109,73 +109,32 @@ const DoctorScheduleManagementPage = () => {
           }
         } catch (apiError) {
           console.error('Error al obtener horarios del servidor:', apiError);
-          console.log('Usando datos locales o generando nuevos');
-        }
 
-        // Si no se pudieron obtener datos del servidor, intentar cargar desde localStorage
-        const savedSchedule = localStorage.getItem('doctorSchedule');
+          // Inicializar con slots vacíos para las fechas actuales
+          console.log('Inicializando datos de disponibilidad vacíos');
+          const emptySlots = {};
 
-        // Para demo, generamos datos aleatorios solo si no se han cargado antes
-        if (!initialDataLoaded) {
-          console.log('Inicializando datos de disponibilidad');
-          let slots = {};
-
-          // Si hay datos guardados, los usamos
-          if (savedSchedule) {
-            try {
-              console.log('Cargando horarios guardados previamente de localStorage');
-              slots = JSON.parse(savedSchedule);
-            } catch (parseError) {
-              console.error('Error al parsear horarios guardados:', parseError);
-              // Si hay error al parsear, creamos nuevos datos
-              slots = {};
-            }
-          }
-
+          // Crear slots vacíos para la semana actual
           currentWeekDays.forEach(day => {
             const dateStr = format(day.date, 'yyyy-MM-dd');
-            slots[dateStr] = {};
+            emptySlots[dateStr] = {};
 
+            // Inicializar todos los slots como no disponibles
             currentTimeSlots.forEach(slot => {
-              // Normalizar el ID del slot para asegurar consistencia
               const normalizedSlotId = normalizeSlotId(slot.id);
-              // 70% de probabilidad de que el horario esté disponible
-              slots[dateStr][normalizedSlotId] = Math.random() > 0.3;
+              emptySlots[dateStr][normalizedSlotId] = false;
             });
           });
 
-          setAvailableSlots(slots);
-          setInitialDataLoaded(true);
-        } else {
-          // Si ya se cargaron los datos, solo agregamos las fechas nuevas que no existan
-          console.log('Actualizando datos de disponibilidad para nuevas fechas');
-
-          // Crear una copia del estado actual
-          const newSlots = { ...availableSlots };
-          let hasChanges = false;
-
-          // Verificar si hay fechas nuevas que agregar
-          currentWeekDays.forEach(day => {
-            const dateStr = format(day.date, 'yyyy-MM-dd');
-
-            if (!newSlots[dateStr]) {
-              hasChanges = true;
-              newSlots[dateStr] = {};
-
-              currentTimeSlots.forEach(slot => {
-                // Normalizar el ID del slot para asegurar consistencia
-                const normalizedSlotId = normalizeSlotId(slot.id);
-                // 70% de probabilidad de que el horario esté disponible
-                newSlots[dateStr][normalizedSlotId] = Math.random() > 0.3;
-              });
-            }
+          setAvailableSlots(emptySlots);
+          setToast({
+            message: 'No se pudieron cargar los horarios del servidor. Se han creado horarios vacíos.',
+            type: 'warning',
+            duration: 5000
           });
-
-          // Solo actualizar el estado si hay cambios
-          if (hasChanges) {
-            setAvailableSlots(newSlots);
-          }
         }
+
+        setInitialDataLoaded(true);
       } catch (error) {
         console.error('Error fetching available slots:', error);
         setToast({
@@ -216,12 +175,19 @@ const DoctorScheduleManagementPage = () => {
     // Normalizar el ID del slot para asegurar consistencia
     const normalizedSlotId = normalizeSlotId(slotId);
 
-    console.log(`Cambiando disponibilidad para ${dateStr}, slot ${normalizedSlotId}`);
-    console.log('Estado actual:', availableSlots[dateStr]?.[normalizedSlotId]);
+    console.log(`Cambiando disponibilidad para ${dateStr}, slot ${slotId} (normalizado: ${normalizedSlotId})`);
 
-    // Usar una variable local para el nuevo valor
-    const newValue = !(availableSlots[dateStr]?.[normalizedSlotId] || false);
-    console.log('Nuevo estado:', newValue);
+    // Verificar si el slot existe en el estado
+    const slotExists = dateStr in availableSlots && normalizedSlotId in availableSlots[dateStr];
+    console.log(`¿El slot existe en el estado? ${slotExists}`);
+
+    // Obtener el estado actual (false por defecto si no existe)
+    const currentValue = availableSlots[dateStr]?.[normalizedSlotId] === true;
+    console.log(`Estado actual: ${currentValue}`);
+
+    // Usar una variable local para el nuevo valor (invertir el estado actual)
+    const newValue = !currentValue;
+    console.log(`Nuevo estado: ${newValue}`);
 
     // Actualizar el estado una sola vez
     setAvailableSlots(prevSlots => {
@@ -273,8 +239,7 @@ const DoctorScheduleManagementPage = () => {
         const response = await api.post(`/api/doctor/schedule/${doctorId}`, { availableSlots: convertedSlots });
         console.log('Respuesta del servidor:', response.data);
 
-        // Guardar también en localStorage como respaldo
-        localStorage.setItem('doctorSchedule', JSON.stringify(availableSlots));
+        // Ya no guardamos en localStorage para evitar inconsistencias
 
         setToast({
           message: 'Horarios guardados con éxito en el servidor',
@@ -283,12 +248,12 @@ const DoctorScheduleManagementPage = () => {
       } catch (apiError) {
         console.error('Error en la llamada a la API:', apiError);
 
-        // Guardar en localStorage para persistencia local
-        localStorage.setItem('doctorSchedule', JSON.stringify(availableSlots));
+        // Ya no guardamos en localStorage para evitar inconsistencias
 
         setToast({
-          message: 'No se pudo guardar en el servidor. Horarios guardados localmente.',
-          type: 'warning'
+          message: 'Error al guardar los horarios en el servidor. Por favor, intente nuevamente.',
+          type: 'error',
+          duration: 5000
         });
       }
     } catch (error) {
@@ -378,7 +343,9 @@ const DoctorScheduleManagementPage = () => {
                             const dateStr = format(day.date, 'yyyy-MM-dd');
                             // Normalizar el ID del slot para asegurar consistencia
                             const normalizedSlotId = normalizeSlotId(slot.id);
-                            const isAvailable = availableSlots[dateStr]?.[normalizedSlotId];
+                            // Verificar si el slot existe en el estado y si está disponible
+                            // Si no existe, se considera como no disponible por defecto
+                            const isAvailable = availableSlots[dateStr]?.[normalizedSlotId] === true;
 
                             return (
                               <td

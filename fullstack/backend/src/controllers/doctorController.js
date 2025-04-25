@@ -48,9 +48,17 @@ const updateDoctorSchedule = async (req, res) => {
     console.log(`Actualizando horarios para doctor ID: ${doctorId}`);
     console.log('Datos recibidos:', JSON.stringify(availableSlots).substring(0, 200) + '...');
 
+    // Imprimir algunos ejemplos de los datos recibidos para depuración
+    const dateKeys = Object.keys(availableSlots);
+    if (dateKeys.length > 0) {
+      const sampleDate = dateKeys[0];
+      console.log(`Ejemplo para fecha ${sampleDate}:`, availableSlots[sampleDate]);
+    }
+
     try {
       const schedule = await doctorService.updateDoctorSchedule(doctorId, availableSlots);
       console.log('Horarios actualizados correctamente');
+      console.log('Respuesta:', JSON.stringify(schedule).substring(0, 200) + '...');
       res.status(200).json(schedule);
     } catch (serviceError) {
       // Si el error es que no se encontró el doctor, devolvemos un 404

@@ -128,6 +128,8 @@ const updateDoctorSchedule = async (doctorId, availableSlots) => {
             // Validar que el valor de disponibilidad sea booleano
             const isAvailable = Boolean(availableSlots[dateStr][slotId]);
 
+            console.log(`Creando entrada para fecha ${dateStr}, slot ${normalizedSlotId}, disponible: ${isAvailable}`);
+
             const entry = await prisma.doctorSchedule.create({
               data: {
                 doctorId: doctorIdInt,
@@ -136,6 +138,8 @@ const updateDoctorSchedule = async (doctorId, availableSlots) => {
                 available: isAvailable
               }
             });
+
+            console.log(`Entrada creada con ID ${entry.id}, disponible: ${entry.available}`);
 
             scheduleEntries.push(entry);
           }
