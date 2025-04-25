@@ -83,7 +83,17 @@ const DoctorScheduleManagementPage = () => {
           console.log('Respuesta del servidor:', response.data);
 
           if (response.data && Object.keys(response.data).length > 0) {
-            console.log('Horarios obtenidos del servidor');
+            console.log('Horarios obtenidos del servidor:', response.data);
+
+            // Mostrar un ejemplo de los datos recibidos
+            const sampleDate = Object.keys(response.data)[0];
+            if (sampleDate) {
+              console.log(`Ejemplo para fecha ${sampleDate}:`, response.data[sampleDate]);
+
+              // Verificar si hay slots disponibles
+              const availableCount = Object.values(response.data[sampleDate]).filter(value => value === true).length;
+              console.log(`Slots disponibles para ${sampleDate}: ${availableCount} de ${Object.keys(response.data[sampleDate]).length}`);
+            }
 
             // Convertir los IDs de slots del formato del backend al formato del frontend
             const convertedSlots = {};
@@ -96,9 +106,18 @@ const DoctorScheduleManagementPage = () => {
               Object.keys(response.data[dateStr]).forEach(slotId => {
                 // Convertir el ID del slot de Bloque_X a slot_X
                 const frontendSlotId = denormalizeSlotId(slotId);
-                convertedSlots[dateStr][frontendSlotId] = response.data[dateStr][slotId];
+                const isAvailable = response.data[dateStr][slotId] === true;
+
+                console.log(`Convirtiendo slot: ${slotId} -> ${frontendSlotId}, disponible: ${isAvailable}`);
+
+                convertedSlots[dateStr][frontendSlotId] = isAvailable;
               });
             });
+
+            // Verificar la conversión para la fecha de ejemplo
+            if (sampleDate) {
+              console.log(`Slots convertidos para ${sampleDate}:`, convertedSlots[sampleDate]);
+            }
 
             setAvailableSlots(convertedSlots);
             setInitialDataLoaded(true);
@@ -350,9 +369,27 @@ const DoctorScheduleManagementPage = () => {
                             const dateStr = format(day.date, 'yyyy-MM-dd');
                             // Usar el ID del slot en formato frontend (slot_X) para buscar en availableSlots
                             const frontendSlotId = slot.id;
-                            // Verificar si el slot existe en el estado y si está disponible
-                            // Si no existe, se considera como no disponible por defecto
-                            const isAvailable = availableSlots[dateStr]?.[frontendSlotId] === true;
+
+                            // Verificar si la fecha existe en el estado
+                            const dateExists = dateStr in availableSlots;
+
+                            // Verificar si el slot existe para esta fecha
+                            const slotExists = dateExists && frontendSlotId in availableSlots[dateStr];
+
+                            // Obtener el valor de disponibilidad
+                            const slotValue = slotExists ? availableSlots[dateStr][frontendSlotId] : undefined;
+
+                            // Verificar si el slot está disponible (debe ser exactamente true)
+                            const isAvailable = slotValue === true;
+
+                            // Log para depuración (solo para el primer slot de cada día)
+                            if (timeIndex === 0 && dayIndex === 0) {
+                              console.log(`Renderizando slot ${frontendSlotId} para fecha ${dateStr}:`);
+                              console.log(`- ¿Fecha existe? ${dateExists}`);
+                              console.log(`- ¿Slot existe? ${slotExists}`);
+                              console.log(`- Valor del slot: ${slotValue}`);
+                              console.log(`- ¿Está disponible? ${isAvailable}`);
+                            }
 
                             return (
                               <td
