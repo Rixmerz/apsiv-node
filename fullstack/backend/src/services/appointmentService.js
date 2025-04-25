@@ -3,7 +3,7 @@
  */
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
-const { normalizeSlotId } = require('../utils/slotUtils');
+const { normalizeSlotId, denormalizeSlotId } = require('../utils/slotUtils');
 
 /**
  * Get all appointments
@@ -448,10 +448,21 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
     }
 
     // Definir los slots por defecto (8:00 AM a 6:00 PM)
-    const defaultSlots = Array.from({ length: 11 }, (_, i) => {
-      const hour = i + 8;
-      return `Bloque_${hour - 7}`; // Bloque_1 para 8:00, Bloque_2 para 9:00, etc.
+    // Bloque_1 para 8:00, Bloque_2 para 9:00, etc.
+    const defaultSlots = [];
+    for (let i = 1; i <= 11; i++) {
+      defaultSlots.push(`Bloque_${i}`);
+    }
+
+    console.log(`[Backend] Slots por defecto: ${defaultSlots.join(', ')}`);
+
+    // Mapeo de slots a horas para depuración
+    const slotToHourMap = {};
+    defaultSlots.forEach(slotId => {
+      const hour = getHourFromSlotId(slotId);
+      slotToHourMap[slotId] = hour;
     });
+    console.log('[Backend] Mapeo de slots a horas:', slotToHourMap);
 
     // Crear un mapa de slots con información detallada
     const slotsInfo = {};
@@ -523,26 +534,40 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
     const reservedSlots = {};
     const allSlots = {};
 
+    // Convertir los IDs de slots del formato del backend al formato del frontend
+    const frontendSlotsInfo = {};
+
     // Llenar los arrays
     Object.keys(slotsInfo).forEach(slotId => {
       const info = slotsInfo[slotId];
+      const frontendSlotId = denormalizeSlotId(slotId);
 
       // Para la vista de disponibilidad (compatible con el formato anterior)
-      availableSlots[slotId] = info.available;
+      availableSlots[frontendSlotId] = info.available;
 
       // Para la vista de reservas
       if (info.status === 'reserved') {
-        reservedSlots[slotId] = info.reservedByPatient;
+        reservedSlots[frontendSlotId] = info.reservedByPatient;
       }
 
       // Para la vista completa
-      allSlots[slotId] = {
-        id: info.id,
+      allSlots[frontendSlotId] = {
+        id: frontendSlotId,
         hour: info.hour,
         status: info.status,
         configuredByDoctor: info.configuredByDoctor
       };
+
+      // Guardar la información detallada con ID de frontend
+      frontendSlotsInfo[frontendSlotId] = {
+        ...info,
+        id: frontendSlotId
+      };
     });
+
+    // Contar cuántos slots están disponibles
+    const availableCount = Object.values(frontendSlotsInfo).filter(info => info.status === 'available').length;
+    console.log(`[Backend] Slots disponibles después de la conversión: ${availableCount}`);
 
     // Verificar si hay al menos un slot disponible
     const hasAvailableSlots = Object.values(availableSlots).some(isAvailable => isAvailable === true);
@@ -552,10 +577,11 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
     return {
       date: dateStr,
       slots: availableSlots,                  // Formato compatible con el anterior
-      slotsInfo: slotsInfo,                   // Información detallada de cada slot
+      slotsInfo: frontendSlotsInfo,           // Información detallada de cada slot con IDs de frontend
       reservedSlots: reservedSlots,           // Slots reservados con info del paciente
       allSlots: allSlots,                     // Todos los slots con su estado
-      hasAvailableSlots: hasAvailableSlots    // Indicador de si hay slots disponibles
+      hasAvailableSlots: hasAvailableSlots,   // Indicador de si hay slots disponibles
+      availableCount: availableCount          // Número de slots disponibles
     };
   } catch (error) {
     console.error(`[Backend] Error in getAvailableSlotsForDate: ${error.message}`);
@@ -567,6 +593,7 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
       reservedSlots: {},
       allSlots: {},
       hasAvailableSlots: false,
+      availableCount: 0,
       error: error.message
     };
   }
@@ -580,12 +607,16 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
 const getHourFromSlotId = (slotId) => {
   // Extract the number from the slot ID
   const match = slotId.match(/Bloque_(\d+)/);
-  if (!match) return 'Hora desconocida';
+  if (!match) {
+    console.warn(`[Backend] ID de slot inválido: ${slotId}`);
+    return 'Hora desconocida';
+  }
 
   const slotNumber = parseInt(match[1]);
   const startHour = slotNumber + 7; // Bloque_1 -> 8:00, Bloque_2 -> 9:00, etc.
   const endHour = startHour + 1;
 
+  console.log(`[Backend] Slot ${slotId} -> Hora ${startHour}:00 - ${endHour}:00`);
   return `${startHour}:00 - ${endHour}:00`;
 };
 
