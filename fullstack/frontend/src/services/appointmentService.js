@@ -15,51 +15,96 @@ export const getAvailableSlotsForDate = async (doctorId, date) => {
 
     console.log('Respuesta del servidor:', response.data);
 
-    // Convertir los IDs de slots del formato del backend al formato del frontend
+    // Convert slot IDs from backend format to frontend format
     const convertedSlots = {};
     const convertedSlotsInfo = {};
     const convertedAllSlots = {};
 
-    // Convertir los slots disponibles
+    // First, handle the slots availability map
     if (response.data.slots) {
-      console.log('Slots disponibles en el backend:', Object.keys(response.data.slots).length);
+      console.log('Available slots in backend:', Object.keys(response.data.slots).length);
       Object.keys(response.data.slots).forEach(slotId => {
         const frontendSlotId = denormalizeSlotId(slotId);
         convertedSlots[frontendSlotId] = response.data.slots[slotId];
-        console.log(`Slot ${slotId} -> ${frontendSlotId}, disponible: ${response.data.slots[slotId]}`);
+        console.log(`Slot ${slotId} -> ${frontendSlotId}, available: ${response.data.slots[slotId]}`);
       });
     }
 
-    // Convertir la información detallada de slots
+    // Then, handle the detailed slots information
     if (response.data.slotsInfo) {
-      console.log('Información de slots en el backend:', Object.keys(response.data.slotsInfo).length);
+      console.log('Slots info in backend:', Object.keys(response.data.slotsInfo).length);
 
-      // Contar cuántos slots están disponibles
+      // Count how many slots are available
       const availableCount = Object.values(response.data.slotsInfo)
         .filter(slot => slot.status === 'available')
         .length;
-      console.log(`Slots con status 'available' en el backend: ${availableCount}`);
+      console.log(`Slots with status 'available' in backend: ${availableCount}`);
+
+      // Group slots by their frontend ID to avoid duplicates
+      const slotsByFrontendId = {};
 
       Object.keys(response.data.slotsInfo).forEach(slotId => {
         const frontendSlotId = denormalizeSlotId(slotId);
         const slotInfo = response.data.slotsInfo[slotId];
 
-        // Asegurarse de que el status se mantenga correctamente
+        // If we already have this frontend ID, only keep the one with more information
+        if (slotsByFrontendId[frontendSlotId]) {
+          // Prefer slots that are configured by the doctor
+          if (!slotsByFrontendId[frontendSlotId].configuredByDoctor && slotInfo.configuredByDoctor) {
+            slotsByFrontendId[frontendSlotId] = slotInfo;
+          }
+          // Prefer slots that are reserved
+          else if (slotsByFrontendId[frontendSlotId].status !== 'reserved' && slotInfo.status === 'reserved') {
+            slotsByFrontendId[frontendSlotId] = slotInfo;
+          }
+          // Prefer slots that are available
+          else if (slotsByFrontendId[frontendSlotId].status !== 'available' && slotInfo.status === 'available') {
+            slotsByFrontendId[frontendSlotId] = slotInfo;
+          }
+        } else {
+          slotsByFrontendId[frontendSlotId] = slotInfo;
+        }
+      });
+
+      // Now process the unique frontend slots
+      Object.keys(slotsByFrontendId).forEach(frontendSlotId => {
+        const slotInfo = slotsByFrontendId[frontendSlotId];
+
+        // Make sure the status is maintained correctly
         convertedSlotsInfo[frontendSlotId] = {
           ...slotInfo,
           id: frontendSlotId
         };
 
-        console.log(`Slot ${slotId} -> ${frontendSlotId}, status: ${slotInfo.status}, available: ${slotInfo.available}, configuredByDoctor: ${slotInfo.configuredByDoctor}`);
+        console.log(`Slot ${frontendSlotId}, status: ${slotInfo.status}, available: ${slotInfo.available}, configuredByDoctor: ${slotInfo.configuredByDoctor}`);
       });
     }
 
-    // Convertir todos los slots
+    // Convert all slots
     if (response.data.allSlots) {
-      console.log('Todos los slots en el backend:', Object.keys(response.data.allSlots).length);
+      console.log('All slots in backend:', Object.keys(response.data.allSlots).length);
+
+      // Group slots by their frontend ID to avoid duplicates
+      const allSlotsByFrontendId = {};
+
       Object.keys(response.data.allSlots).forEach(slotId => {
         const frontendSlotId = denormalizeSlotId(slotId);
         const slotInfo = response.data.allSlots[slotId];
+
+        // If we already have this frontend ID, only keep the one with more information
+        if (allSlotsByFrontendId[frontendSlotId]) {
+          // Prefer slots that are configured by the doctor
+          if (!allSlotsByFrontendId[frontendSlotId].configuredByDoctor && slotInfo.configuredByDoctor) {
+            allSlotsByFrontendId[frontendSlotId] = slotInfo;
+          }
+        } else {
+          allSlotsByFrontendId[frontendSlotId] = slotInfo;
+        }
+      });
+
+      // Now process the unique frontend slots
+      Object.keys(allSlotsByFrontendId).forEach(frontendSlotId => {
+        const slotInfo = allSlotsByFrontendId[frontendSlotId];
 
         convertedAllSlots[frontendSlotId] = {
           ...slotInfo,
@@ -68,11 +113,11 @@ export const getAvailableSlotsForDate = async (doctorId, date) => {
       });
     }
 
-    // Verificar cuántos slots están disponibles después de la conversión
+    // Check how many slots are available after conversion
     const availableCount = Object.values(convertedSlotsInfo)
       .filter(slot => slot.status === 'available')
       .length;
-    console.log(`Slots con status 'available' después de la conversión: ${availableCount}`);
+    console.log(`Slots with status 'available' after conversion: ${availableCount}`);
 
     return {
       ...response.data,
