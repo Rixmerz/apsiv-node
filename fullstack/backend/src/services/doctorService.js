@@ -100,14 +100,45 @@ const updateDoctorSchedule = async (doctorId, availableSlots) => {
       throw new Error(`Doctor not found with ID: ${doctorIdInt}`);
     }
 
-    // Start a transaction to update all schedule entries
+    // Start a transaction to update only the schedule entries for the provided dates
     const result = await prisma.$transaction(async (prisma) => {
-      // Delete existing schedule entries for this doctor
-      await prisma.doctorSchedule.deleteMany({
-        where: {
-          doctorId: doctorIdInt
+      // Get the list of dates that are being updated
+      const datesToUpdate = Object.keys(availableSlots);
+      console.log(`Actualizando horarios solo para las fechas: ${datesToUpdate.join(', ')}`);
+
+      // Delete existing schedule entries only for the dates being updated
+      for (const dateStr of datesToUpdate) {
+        try {
+          const date = new Date(dateStr);
+          if (isNaN(date.getTime())) {
+            console.warn(`Invalid date: ${dateStr}, skipping`);
+            continue;
+          }
+
+          // Create start and end of day for the date
+          const startDate = new Date(dateStr + 'T00:00:00');
+          const endDate = new Date(dateStr + 'T23:59:59');
+
+          console.log(`Eliminando entradas existentes para la fecha ${dateStr} (${startDate.toISOString()} - ${endDate.toISOString()})`);
+
+          // Delete existing entries for this date
+          const deletedEntries = await prisma.doctorSchedule.deleteMany({
+            where: {
+              doctorId: doctorIdInt,
+              date: {
+                gte: startDate,
+                lte: endDate
+              }
+            }
+          });
+
+          console.log(`Eliminadas ${deletedEntries.count} entradas para la fecha ${dateStr}`);
+        } catch (error) {
+          console.error(`Error al eliminar entradas para la fecha ${dateStr}:`, error);
+          // Continue with the next date instead of failing the entire operation
+          continue;
         }
-      });
+      }
 
       // Create new schedule entries
       const scheduleEntries = [];
