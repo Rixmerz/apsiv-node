@@ -98,7 +98,9 @@ const DoctorScheduleManagementPage = () => {
 
       try {
         setLoading(true);
-        console.log('Obteniendo horarios del doctor...');
+        // Limpiar el estado de los slots disponibles al cambiar de semana
+        setAvailableSlots({});
+        console.log('Obteniendo horarios del doctor para la semana que comienza el', format(currentWeek, 'yyyy-MM-dd'));
 
         // Intentar obtener los horarios del doctor desde el backend
         try {
@@ -107,6 +109,22 @@ const DoctorScheduleManagementPage = () => {
 
           const response = await api.get(`/api/doctor/schedule/${doctorId}`);
           console.log('Respuesta del servidor:', response.data);
+
+          // Inicializar con slots vacíos para las fechas de la semana actual
+          const initialSlots = {};
+
+          // Crear slots vacíos para la semana actual
+          currentWeekDays.forEach(day => {
+            if (!day.isWeekend) { // Solo inicializar días laborables
+              const dateStr = format(day.date, 'yyyy-MM-dd');
+              initialSlots[dateStr] = {};
+
+              // Inicializar todos los slots como no disponibles
+              currentTimeSlots.forEach(slot => {
+                initialSlots[dateStr][slot.id] = false;
+              });
+            }
+          });
 
           if (response.data && Object.keys(response.data).length > 0) {
             console.log('Horarios obtenidos del servidor:', response.data);
@@ -122,22 +140,31 @@ const DoctorScheduleManagementPage = () => {
             }
 
             // Convertir los IDs de slots del formato del backend al formato del frontend
-            const convertedSlots = {};
+            const convertedSlots = {...initialSlots}; // Usar los slots inicializados como base
 
-            // Recorrer todas las fechas
+            // Recorrer todas las fechas del servidor
             Object.keys(response.data).forEach(dateStr => {
-              convertedSlots[dateStr] = {};
+              // Verificar si la fecha está en la semana actual
+              const dateInCurrentWeek = currentWeekDays.some(day =>
+                format(day.date, 'yyyy-MM-dd') === dateStr && !day.isWeekend
+              );
 
-              // Recorrer todos los slots de cada fecha
-              Object.keys(response.data[dateStr]).forEach(slotId => {
-                // Convertir el ID del slot de Bloque_X a slot_X
-                const frontendSlotId = denormalizeSlotId(slotId);
-                const isAvailable = response.data[dateStr][slotId] === true;
+              if (dateInCurrentWeek) {
+                if (!convertedSlots[dateStr]) {
+                  convertedSlots[dateStr] = {};
+                }
 
-                console.log(`Convirtiendo slot: ${slotId} -> ${frontendSlotId}, disponible: ${isAvailable}`);
+                // Recorrer todos los slots de cada fecha
+                Object.keys(response.data[dateStr]).forEach(slotId => {
+                  // Convertir el ID del slot de Bloque_X a slot_X
+                  const frontendSlotId = denormalizeSlotId(slotId);
+                  const isAvailable = response.data[dateStr][slotId] === true;
 
-                convertedSlots[dateStr][frontendSlotId] = isAvailable;
-              });
+                  console.log(`Convirtiendo slot: ${slotId} -> ${frontendSlotId}, disponible: ${isAvailable}`);
+
+                  convertedSlots[dateStr][frontendSlotId] = isAvailable;
+                });
+              }
             });
 
             // Verificar la conversión para la fecha de ejemplo
@@ -150,7 +177,11 @@ const DoctorScheduleManagementPage = () => {
             setLoading(false);
             return;
           } else {
-            console.log('No se encontraron horarios en el servidor, generando datos iniciales');
+            console.log('No se encontraron horarios en el servidor, usando datos iniciales');
+            setAvailableSlots(initialSlots);
+            setInitialDataLoaded(true);
+            setLoading(false);
+            return;
           }
         } catch (apiError) {
           console.error('Error al obtener horarios del servidor:', apiError);
@@ -161,14 +192,16 @@ const DoctorScheduleManagementPage = () => {
 
           // Crear slots vacíos para la semana actual
           currentWeekDays.forEach(day => {
-            const dateStr = format(day.date, 'yyyy-MM-dd');
-            emptySlots[dateStr] = {};
+            if (!day.isWeekend) { // Solo inicializar días laborables
+              const dateStr = format(day.date, 'yyyy-MM-dd');
+              emptySlots[dateStr] = {};
 
-            // Inicializar todos los slots como no disponibles
-            currentTimeSlots.forEach(slot => {
-              const normalizedSlotId = normalizeSlotId(slot.id);
-              emptySlots[dateStr][normalizedSlotId] = false;
-            });
+              // Inicializar todos los slots como no disponibles
+              currentTimeSlots.forEach(slot => {
+                // Usar directamente el ID del slot en formato frontend
+                emptySlots[dateStr][slot.id] = false;
+              });
+            }
           });
 
           setAvailableSlots(emptySlots);
@@ -235,6 +268,8 @@ const DoctorScheduleManagementPage = () => {
     // Mostrar todos los slots disponibles para esta fecha
     if (dateExists) {
       console.log(`Slots para fecha ${dateStr}:`, availableSlots[dateStr]);
+    } else {
+      console.log(`La fecha ${dateStr} no existe en el estado. Inicializando...`);
     }
 
     // Verificar si el slot existe en el estado
@@ -251,11 +286,17 @@ const DoctorScheduleManagementPage = () => {
 
     // Actualizar el estado una sola vez
     setAvailableSlots(prevSlots => {
-      // Crear una copia del objeto evitando la serialización innecesaria
-      const newSlots = {...prevSlots};
+      // Crear una copia profunda del objeto para evitar modificar el estado directamente
+      const newSlots = JSON.parse(JSON.stringify(prevSlots));
 
+      // Si la fecha no existe, inicializarla con todos los slots como no disponibles
       if (!newSlots[dateStr]) {
         newSlots[dateStr] = {};
+
+        // Inicializar todos los slots como no disponibles
+        timeSlots.forEach(slot => {
+          newSlots[dateStr][slot.id] = false;
+        });
       }
 
       // Asignar el nuevo valor
