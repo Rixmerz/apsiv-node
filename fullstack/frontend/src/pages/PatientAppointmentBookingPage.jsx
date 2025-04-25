@@ -104,7 +104,16 @@ const PatientAppointmentBookingPage = () => {
         try {
           if (isMounted) setLoading(true);
 
-          const dateStr = format(selectedDate, 'yyyy-MM-dd');
+          // Asegurarnos de que la fecha se maneje correctamente
+          // Crear una nueva fecha para evitar problemas con zonas horarias
+          const year = selectedDate.getFullYear();
+          const month = selectedDate.getMonth();
+          const day = selectedDate.getDate();
+          const dateObj = new Date(year, month, day);
+
+          const dateStr = format(dateObj, 'yyyy-MM-dd');
+          console.log(`Fecha seleccionada: ${selectedDate.toISOString()}`);
+          console.log(`Fecha formateada: ${dateStr}`);
           console.log(`Iniciando petición para obtener horarios disponibles para doctor ${selectedDoctor.id} en fecha ${dateStr}...`);
 
           const slotsData = await getAvailableSlotsForDate(selectedDoctor.id, dateStr);
@@ -184,8 +193,13 @@ const PatientAppointmentBookingPage = () => {
       const slotNumber = parseInt(selectedSlot.replace('slot_', ''));
       const appointmentHour = slotNumber + 7; // slot_1 -> 8:00, slot_2 -> 9:00, etc.
 
-      const appointmentDate = new Date(selectedDate);
-      appointmentDate.setHours(appointmentHour, 0, 0, 0);
+      // Asegurarnos de que la fecha se maneje correctamente
+      const year = selectedDate.getFullYear();
+      const month = selectedDate.getMonth();
+      const day = selectedDate.getDate();
+
+      const appointmentDate = new Date(year, month, day, appointmentHour, 0, 0, 0);
+      console.log(`Fecha de la cita: ${appointmentDate.toISOString()}, hora: ${appointmentHour}:00`);
 
       const appointmentData = {
         doctorId: selectedDoctor.id,
@@ -278,8 +292,13 @@ const PatientAppointmentBookingPage = () => {
     const lastDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
 
     // Ajustar el primer día de la semana (0 = domingo, 1 = lunes, ..., 6 = sábado)
+    // En JavaScript, getDay() devuelve 0 para domingo, 1 para lunes, etc.
+    // Pero nuestro calendario empieza en lunes, así que ajustamos:
+    // Lunes: 0, Martes: 1, ..., Domingo: 6
     let firstDayOfWeek = firstDayOfMonth.getDay() - 1;
     if (firstDayOfWeek < 0) firstDayOfWeek = 6; // Si es domingo (0), ajustar a 6
+
+    console.log(`Primer día del mes: ${firstDayOfMonth.toISOString()}, día de la semana: ${firstDayOfMonth.getDay()}, ajustado: ${firstDayOfWeek}`);
 
     const daysArray = [];
 
@@ -385,7 +404,7 @@ const PatientAppointmentBookingPage = () => {
 
           {slotIds.filter(slotId => {
             const slot = slots[slotId];
-            return slot.configuredByDoctor && slot.status === 'available';
+            return slot.status === 'available';
           }).length === 0 && (
             <div className="col-span-full text-center py-4 text-gray-500">
               No hay horarios disponibles para esta fecha
