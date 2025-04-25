@@ -598,15 +598,13 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
     }
 
     // Define default slots (8:00 AM to 1:00 AM)
-    // We need to handle both formats during transition:
-    // - Legacy format: Bloque_X (stored in database)
-    // - New format: block_X (used in new code)
+    // We'll use only the new format (block_X) for default slots
+    // and handle legacy format (Bloque_X) when processing doctor schedules
 
-    // Include all possible slots (1-18) in both formats
+    // Include all possible slots (1-18)
     const defaultSlots = [];
     for (let i = 1; i <= 18; i++) {
       defaultSlots.push(`block_${i}`);
-      defaultSlots.push(`Bloque_${i}`); // Also include legacy format
     }
 
     console.log(`[Backend] Default slots (${defaultSlots.length}):`, defaultSlots.join(', '));
@@ -657,37 +655,61 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
     const unconfiguredSlots = slotIds.filter(slotId => !configuredSlots.includes(slotId));
     console.log(`[Backend] Slots no configurados por el doctor: ${unconfiguredSlots.join(', ')}`);
 
-    // Procesar cada entrada de horario del doctor
+    // Process each doctor schedule entry
     doctorSchedule.forEach(schedule => {
-      const normalizedSlotId = normalizeSlotId(schedule.slotId);
-      console.log(`[Backend] Procesando slot: ${schedule.slotId} -> normalizado: ${normalizedSlotId}, disponible: ${schedule.available}, fecha: ${schedule.date.toISOString()}`);
+      // Get the slot ID from the schedule
+      const originalSlotId = schedule.slotId;
 
-      if (slotsInfo[normalizedSlotId]) {
-        slotsInfo[normalizedSlotId].configuredByDoctor = true;
-        slotsInfo[normalizedSlotId].available = schedule.available;
+      // Normalize to the new format (block_X)
+      const normalizedSlotId = normalizeSlotId(originalSlotId);
 
-        // Actualizar el estado basado en la configuración del doctor
+      console.log(`[Backend] Processing slot: ${originalSlotId} -> normalized: ${normalizedSlotId}, available: ${schedule.available}, date: ${schedule.date.toISOString()}`);
+
+      // Extract the slot number for consistent handling
+      let slotNumber = null;
+
+      if (normalizedSlotId.startsWith('block_')) {
+        slotNumber = parseInt(normalizedSlotId.replace('block_', ''));
+      } else if (normalizedSlotId.startsWith('Bloque_')) {
+        slotNumber = parseInt(normalizedSlotId.replace('Bloque_', ''));
+      } else if (normalizedSlotId.startsWith('slot_')) {
+        slotNumber = parseInt(normalizedSlotId.replace('slot_', ''));
+      }
+
+      if (slotNumber === null || isNaN(slotNumber)) {
+        console.warn(`[Backend] Could not extract slot number from ${normalizedSlotId}, skipping`);
+        return; // Skip this slot
+      }
+
+      // Always use the new format for consistency
+      const standardSlotId = `block_${slotNumber}`;
+
+      if (slotsInfo[standardSlotId]) {
+        slotsInfo[standardSlotId].configuredByDoctor = true;
+        slotsInfo[standardSlotId].available = schedule.available;
+
+        // Update status based on doctor configuration
         if (schedule.available) {
-          slotsInfo[normalizedSlotId].status = 'available';
-          console.log(`[Backend] Slot ${normalizedSlotId} marcado como disponible`);
+          slotsInfo[standardSlotId].status = 'available';
+          console.log(`[Backend] Slot ${standardSlotId} marked as available`);
         } else {
-          slotsInfo[normalizedSlotId].status = 'unavailable';
-          console.log(`[Backend] Slot ${normalizedSlotId} marcado como no disponible`);
+          slotsInfo[standardSlotId].status = 'unavailable';
+          console.log(`[Backend] Slot ${standardSlotId} marked as unavailable`);
         }
       } else {
-        console.log(`[Backend] ADVERTENCIA: Slot ${normalizedSlotId} no encontrado en slotsInfo`);
+        console.log(`[Backend] WARNING: Slot ${standardSlotId} not found in slotsInfo`);
 
-        // Crear el slot si no existe
-        slotsInfo[normalizedSlotId] = {
-          id: normalizedSlotId,
-          hour: getHourFromSlotId(normalizedSlotId),
+        // Create the slot if it doesn't exist
+        slotsInfo[standardSlotId] = {
+          id: standardSlotId,
+          hour: getHourFromSlotId(standardSlotId),
           configuredByDoctor: true,
           available: schedule.available,
           status: schedule.available ? 'available' : 'unavailable',
           reservedByPatient: null
         };
 
-        console.log(`[Backend] Slot ${normalizedSlotId} creado con estado: ${slotsInfo[normalizedSlotId].status}`);
+        console.log(`[Backend] Slot ${standardSlotId} created with status: ${slotsInfo[standardSlotId].status}`);
       }
     });
 
@@ -707,7 +729,11 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
     existingAppointments.forEach(appointment => {
       const hour = appointment.date.getHours();
       const slotIndex = hour - 7; // 8:00 -> 1, 9:00 -> 2, etc.
+
+      // Always use the new format for consistency
       const slotId = `block_${slotIndex}`;
+
+      console.log(`[Backend] Processing existing appointment at ${appointment.date.toISOString()}, hour: ${hour}, slotIndex: ${slotIndex}, slotId: ${slotId}`);
 
       if (slotsInfo[slotId]) {
         // Mark as reserved
@@ -718,8 +744,52 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
           name: appointment.patient?.user?.name || 'Patient',
           appointmentId: appointment.id
         };
+
+        console.log(`[Backend] Slot ${slotId} marked as reserved for patient ${appointment.patientId}`);
       } else {
-        console.log(`[Backend] Warning: Slot ${slotId} not found in slotsInfo for existing appointment at ${appointment.date}`);
+        console.log(`[Backend] Warning: Slot ${slotId} not found in slotsInfo for existing appointment at ${appointment.date.toISOString()}`);
+
+        // Try to find the slot with a different format
+        const alternativeFormats = [
+          `Bloque_${slotIndex}`,
+          `slot_${slotIndex}`
+        ];
+
+        let found = false;
+        for (const format of alternativeFormats) {
+          if (slotsInfo[format]) {
+            // Mark as reserved
+            slotsInfo[format].available = false;
+            slotsInfo[format].status = 'reserved';
+            slotsInfo[format].reservedByPatient = {
+              id: appointment.patientId,
+              name: appointment.patient?.user?.name || 'Patient',
+              appointmentId: appointment.id
+            };
+
+            console.log(`[Backend] Found slot with alternative format ${format}, marked as reserved`);
+            found = true;
+            break;
+          }
+        }
+
+        if (!found) {
+          // Create the slot if it doesn't exist
+          slotsInfo[slotId] = {
+            id: slotId,
+            hour: getHourFromSlotId(slotId),
+            configuredByDoctor: true, // Assume it was configured since there's an appointment
+            available: false,
+            status: 'reserved',
+            reservedByPatient: {
+              id: appointment.patientId,
+              name: appointment.patient?.user?.name || 'Patient',
+              appointmentId: appointment.id
+            }
+          };
+
+          console.log(`[Backend] Created slot ${slotId} and marked as reserved`);
+        }
       }
     });
 
@@ -731,20 +801,48 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
     // Convertir los IDs de slots del formato del backend al formato del frontend
     const frontendSlotsInfo = {};
 
-    // Llenar los arrays
+    // Fill the arrays with unique frontend slot IDs
+    // First, group slots by their frontend ID to avoid duplicates
+    const slotsByFrontendId = {};
+
     Object.keys(slotsInfo).forEach(slotId => {
       const info = slotsInfo[slotId];
       const frontendSlotId = denormalizeSlotId(slotId);
 
-      // Para la vista de disponibilidad (compatible con el formato anterior)
+      // If we already have this frontend ID, only keep the one with more information
+      if (slotsByFrontendId[frontendSlotId]) {
+        // Prefer slots that are configured by the doctor
+        if (!slotsByFrontendId[frontendSlotId].configuredByDoctor && info.configuredByDoctor) {
+          slotsByFrontendId[frontendSlotId] = info;
+        }
+        // Prefer slots that are reserved
+        else if (slotsByFrontendId[frontendSlotId].status !== 'reserved' && info.status === 'reserved') {
+          slotsByFrontendId[frontendSlotId] = info;
+        }
+        // Prefer slots that are available
+        else if (slotsByFrontendId[frontendSlotId].status !== 'available' && info.status === 'available') {
+          slotsByFrontendId[frontendSlotId] = info;
+        }
+      } else {
+        slotsByFrontendId[frontendSlotId] = info;
+      }
+    });
+
+    // Now process the unique frontend slots
+    Object.keys(slotsByFrontendId).forEach(frontendSlotId => {
+      const info = slotsByFrontendId[frontendSlotId];
+
+      console.log(`[Backend] Processing frontend slot ${frontendSlotId}: status=${info.status}, available=${info.available}, configuredByDoctor=${info.configuredByDoctor}`);
+
+      // For availability view (compatible with previous format)
       availableSlots[frontendSlotId] = info.available;
 
-      // Para la vista de reservas
+      // For reservations view
       if (info.status === 'reserved') {
         reservedSlots[frontendSlotId] = info.reservedByPatient;
       }
 
-      // Para la vista completa
+      // For complete view
       allSlots[frontendSlotId] = {
         id: frontendSlotId,
         hour: info.hour,
@@ -752,7 +850,7 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
         configuredByDoctor: info.configuredByDoctor
       };
 
-      // Guardar la información detallada con ID de frontend
+      // Save detailed information with frontend ID
       frontendSlotsInfo[frontendSlotId] = {
         ...info,
         id: frontendSlotId
