@@ -172,22 +172,29 @@ const DoctorScheduleManagementPage = () => {
 
   // Cambiar la disponibilidad de un horario
   const toggleSlotAvailability = (dateStr, slotId) => {
-    // Normalizar el ID del slot para asegurar consistencia
-    const normalizedSlotId = normalizeSlotId(slotId);
+    // El slotId ya viene en formato frontend (slot_X)
+    console.log(`Cambiando disponibilidad para ${dateStr}, slot ${slotId}`);
 
-    console.log(`Cambiando disponibilidad para ${dateStr}, slot ${slotId} (normalizado: ${normalizedSlotId})`);
+    // Verificar si la fecha existe en el estado
+    const dateExists = dateStr in availableSlots;
+    console.log(`¿La fecha ${dateStr} existe en el estado? ${dateExists}`);
+
+    // Mostrar todos los slots disponibles para esta fecha
+    if (dateExists) {
+      console.log(`Slots para fecha ${dateStr}:`, availableSlots[dateStr]);
+    }
 
     // Verificar si el slot existe en el estado
-    const slotExists = dateStr in availableSlots && normalizedSlotId in availableSlots[dateStr];
-    console.log(`¿El slot existe en el estado? ${slotExists}`);
+    const slotExists = dateExists && slotId in availableSlots[dateStr];
+    console.log(`¿El slot ${slotId} existe en el estado? ${slotExists}`);
 
     // Obtener el estado actual (false por defecto si no existe)
-    const currentValue = availableSlots[dateStr]?.[normalizedSlotId] === true;
-    console.log(`Estado actual: ${currentValue}`);
+    const currentValue = availableSlots[dateStr]?.[slotId] === true;
+    console.log(`Estado actual de ${slotId}: ${currentValue}`);
 
     // Usar una variable local para el nuevo valor (invertir el estado actual)
     const newValue = !currentValue;
-    console.log(`Nuevo estado: ${newValue}`);
+    console.log(`Nuevo estado de ${slotId}: ${newValue}`);
 
     // Actualizar el estado una sola vez
     setAvailableSlots(prevSlots => {
@@ -199,7 +206,7 @@ const DoctorScheduleManagementPage = () => {
       }
 
       // Asignar el nuevo valor
-      newSlots[dateStr][normalizedSlotId] = newValue;
+      newSlots[dateStr][slotId] = newValue;
 
       return newSlots;
     });
@@ -341,11 +348,11 @@ const DoctorScheduleManagementPage = () => {
                           </td>
                           {weekDays.map((day, dayIndex) => {
                             const dateStr = format(day.date, 'yyyy-MM-dd');
-                            // Normalizar el ID del slot para asegurar consistencia
-                            const normalizedSlotId = normalizeSlotId(slot.id);
+                            // Usar el ID del slot en formato frontend (slot_X) para buscar en availableSlots
+                            const frontendSlotId = slot.id;
                             // Verificar si el slot existe en el estado y si está disponible
                             // Si no existe, se considera como no disponible por defecto
-                            const isAvailable = availableSlots[dateStr]?.[normalizedSlotId] === true;
+                            const isAvailable = availableSlots[dateStr]?.[frontendSlotId] === true;
 
                             return (
                               <td
@@ -355,7 +362,7 @@ const DoctorScheduleManagementPage = () => {
                                 }`}
                               >
                                 <button
-                                  onClick={() => toggleSlotAvailability(dateStr, normalizedSlotId)}
+                                  onClick={() => toggleSlotAvailability(dateStr, frontendSlotId)}
                                   className={`w-full h-full p-2 text-center rounded transition-colors ${
                                     isAvailable
                                       ? 'bg-green-100 hover:bg-green-200 text-green-800'
