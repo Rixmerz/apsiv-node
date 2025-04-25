@@ -21,7 +21,7 @@ const conditionalAuth = (req, res, next) => {
 };
 
 // Ruta pública para obtener slots disponibles
-router.get('/available-slots/:doctorId/:date', appointmentController.getAvailableSlotsForDate);
+router.get('/available/:doctorId/:date', appointmentController.getAvailableSlotsForDate);
 
 // Protected routes
 router.use(conditionalAuth);

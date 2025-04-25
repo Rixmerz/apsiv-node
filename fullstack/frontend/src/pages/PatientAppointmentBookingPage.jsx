@@ -28,23 +28,41 @@ const PatientAppointmentBookingPage = () => {
 
   // Cargar la lista de doctores al montar el componente
   useEffect(() => {
+    // Usar una variable para controlar si el componente está montado
+    let isMounted = true;
+
     const fetchDoctors = async () => {
       try {
-        setLoading(true);
+        if (isMounted) setLoading(true);
+
+        // Verificar si ya se ha hecho una petición para evitar duplicados
+        console.log('Iniciando petición para obtener lista de doctores...');
+
         const doctorsData = await getAllDoctors();
-        setDoctors(doctorsData);
-        setLoading(false);
+
+        if (isMounted) {
+          console.log('Doctores obtenidos correctamente:', doctorsData.length);
+          setDoctors(doctorsData);
+          setLoading(false);
+        }
       } catch (error) {
         console.error('Error al cargar doctores:', error);
-        setToast({
-          message: 'Error al cargar la lista de doctores',
-          type: 'error'
-        });
-        setLoading(false);
+        if (isMounted) {
+          setToast({
+            message: 'Error al cargar la lista de doctores',
+            type: 'error'
+          });
+          setLoading(false);
+        }
       }
     };
 
     fetchDoctors();
+
+    // Función de limpieza para evitar actualizar el estado si el componente se desmonta
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Cargar los días disponibles cuando se selecciona un doctor y cambia el mes
@@ -76,27 +94,43 @@ const PatientAppointmentBookingPage = () => {
 
   // Cargar los horarios disponibles cuando se selecciona una fecha
   useEffect(() => {
+    // Usar una variable para controlar si el componente está montado
+    let isMounted = true;
+
     const fetchAvailableSlots = async () => {
       if (selectedDoctor && selectedDate) {
         try {
-          setLoading(true);
+          if (isMounted) setLoading(true);
+
           const dateStr = format(selectedDate, 'yyyy-MM-dd');
+          console.log(`Iniciando petición para obtener horarios disponibles para doctor ${selectedDoctor.id} en fecha ${dateStr}...`);
+
           const slotsData = await getAvailableSlotsForDate(selectedDoctor.id, dateStr);
 
-          setAvailableSlots(slotsData);
-          setLoading(false);
+          if (isMounted) {
+            console.log('Horarios obtenidos correctamente:', slotsData);
+            setAvailableSlots(slotsData);
+            setLoading(false);
+          }
         } catch (error) {
           console.error('Error al cargar horarios disponibles:', error);
-          setToast({
-            message: 'Error al cargar horarios disponibles',
-            type: 'error'
-          });
-          setLoading(false);
+          if (isMounted) {
+            setToast({
+              message: 'Error al cargar horarios disponibles',
+              type: 'error'
+            });
+            setLoading(false);
+          }
         }
       }
     };
 
     fetchAvailableSlots();
+
+    // Función de limpieza para evitar actualizar el estado si el componente se desmonta
+    return () => {
+      isMounted = false;
+    };
   }, [selectedDoctor, selectedDate]);
 
   // Navegar al mes anterior

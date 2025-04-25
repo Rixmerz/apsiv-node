@@ -19,31 +19,51 @@ const PatientAppointmentsPage = () => {
 
   // Cargar las citas del paciente al montar el componente
   useEffect(() => {
+    // Usar una variable para controlar si el componente está montado
+    let isMounted = true;
+
     const fetchAppointments = async () => {
       if (!user || !user.patientProfile) {
-        setToast({
-          message: 'No se encontró el perfil de paciente',
-          type: 'error'
-        });
+        if (isMounted) {
+          setToast({
+            message: 'No se encontró el perfil de paciente',
+            type: 'error'
+          });
+        }
         return;
       }
 
       try {
-        setLoading(true);
+        if (isMounted) setLoading(true);
+
+        // Verificar si ya se ha hecho una petición para evitar duplicados
+        console.log('Iniciando petición para obtener citas del paciente...');
+
         const appointmentsData = await getPatientAppointments(user.patientProfile.id);
-        setAppointments(appointmentsData);
-        setLoading(false);
+
+        if (isMounted) {
+          console.log('Citas obtenidas correctamente:', appointmentsData.length);
+          setAppointments(appointmentsData);
+          setLoading(false);
+        }
       } catch (error) {
         console.error('Error al cargar citas:', error);
-        setToast({
-          message: 'Error al cargar las citas',
-          type: 'error'
-        });
-        setLoading(false);
+        if (isMounted) {
+          setToast({
+            message: 'Error al cargar las citas',
+            type: 'error'
+          });
+          setLoading(false);
+        }
       }
     };
 
     fetchAppointments();
+
+    // Función de limpieza para evitar actualizar el estado si el componente se desmonta
+    return () => {
+      isMounted = false;
+    };
   }, [user]);
 
   // Cancelar una cita
