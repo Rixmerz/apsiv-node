@@ -5,8 +5,8 @@ import { es } from 'date-fns/locale';
 import { useAuth } from '../hooks/useAuth';
 import { getAvailableSlotsForDate, createAppointment } from '../services/appointmentService';
 import { getAllDoctors } from '../services/doctorService';
-import Spinner from '../components/Spinner';
-import Toast from '../components/Toast';
+import Spinner from '../components/common/Spinner';
+import Toast from '../components/common/Toast';
 
 const PatientAppointmentBookingPage = () => {
   const { user } = useAuth();
