@@ -60,9 +60,13 @@ const AppointmentPage = () => {
     { id: 'slot_8', time: '17:00 - 18:00' }
   ];
 
-  // Available dates for the selected month (excluding weekends)
+  // Available dates for the selected month (excluding weekends and past dates)
   const getAvailableDates = () => {
     const dates = [];
+
+    // Fecha de referencia "actual" para nuestro sistema (24 de abril de 2025)
+    const today = new Date(2025, 3, 24); // 24 de abril de 2025 (meses en JS son 0-indexed)
+    console.log('Fecha de referencia (hoy):', format(today, 'yyyy-MM-dd'));
 
     // First day of selected month
     const firstDay = new Date(selectedYear, selectedMonth, 1);
@@ -70,12 +74,25 @@ const AppointmentPage = () => {
     // Last day of selected month
     const lastDay = new Date(selectedYear, selectedMonth + 1, 0);
 
-    // Siempre empezar desde el primer día del mes (estamos en 2025)
-    for (let d = new Date(firstDay); d <= lastDay; d.setDate(d.getDate() + 1)) {
+    // Determinar desde qué día empezar
+    // Si el mes seleccionado es el mes actual, empezar desde hoy
+    // De lo contrario, empezar desde el primer día del mes
+    const startDate = (selectedMonth === today.getMonth() && selectedYear === today.getFullYear())
+      ? new Date(today) // Copia de la fecha actual
+      : new Date(firstDay);
+
+    console.log('Fecha de inicio para mostrar días:', format(startDate, 'yyyy-MM-dd'));
+
+    for (let d = new Date(startDate); d <= lastDay; d.setDate(d.getDate() + 1)) {
       // Skip weekends (0 is Sunday, 6 is Saturday)
       if (d.getDay() !== 0 && d.getDay() !== 6) {
-        // Crear una nueva instancia de Date para evitar referencias
-        dates.push(new Date(d.getTime()));
+        // Verificar si la fecha es anterior a la fecha actual
+        if (d.getTime() >= today.getTime()) {
+          // Crear una nueva instancia de Date para evitar referencias
+          dates.push(new Date(d.getTime()));
+        } else {
+          console.log('Omitiendo fecha pasada:', format(d, 'yyyy-MM-dd'));
+        }
       }
     }
 
@@ -126,11 +143,25 @@ const AppointmentPage = () => {
   const handleDateSelect = (date) => {
     console.log('Fecha seleccionada original:', date);
 
+    // Fecha de referencia "actual" para nuestro sistema (24 de abril de 2025)
+    const today = new Date(2025, 3, 24); // 24 de abril de 2025 (meses en JS son 0-indexed)
+
     // Normalizar la fecha para que siempre tenga hora 00:00:00
     // Esto evita problemas con la zona horaria y la hora actual
     const normalizedDate = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
-
     console.log('Fecha seleccionada normalizada:', normalizedDate);
+
+    // Verificar si la fecha es anterior a la fecha actual
+    if (normalizedDate.getTime() < today.getTime()) {
+      console.log('Fecha seleccionada es anterior a la fecha actual');
+      setToast({
+        message: 'No se pueden seleccionar fechas pasadas. Por favor, seleccione una fecha futura.',
+        type: 'warning',
+        duration: 4000
+      });
+      return;
+    }
+
     setSelectedDate(normalizedDate);
     setSelectedSlot(null);
     // La carga de horarios disponibles se maneja en el useEffect cuando se cambia a step 3
@@ -630,24 +661,34 @@ const AppointmentPage = () => {
                   <div className="grid grid-cols-7 gap-1">
                     {/* Render calendar grid */}
                     {availableDates.map((date, index) => {
-                      // 1-7 (Monday-Sunday)
-                      const isToday = isSameDay(date, new Date());
+                      // Fecha de referencia "actual" para nuestro sistema (24 de abril de 2025)
+                      const today = new Date(2025, 3, 24); // 24 de abril de 2025
+
+                      // Verificar si es la fecha actual de referencia
+                      const isToday = isSameDay(date, today);
+
+                      // Verificar si es una fecha pasada
+                      const isPastDate = date.getTime() < today.getTime();
 
                       return (
                         <button
                           key={index}
                           onClick={() => handleDateSelect(date)}
-                          className={`p-3 rounded-lg text-center hover:bg-gray-50 transition-colors ${
+                          disabled={isPastDate}
+                          className={`p-3 rounded-lg text-center transition-colors ${
                             selectedDate && isSameDay(date, selectedDate)
                               ? 'bg-primary-light/20 font-bold text-primary-dark'
                               : isToday
-                                ? 'bg-gray-100 font-semibold'
-                                : ''
+                                ? 'bg-primary-light/10 font-semibold border border-primary-light'
+                                : isPastDate
+                                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
+                                  : 'hover:bg-gray-50'
                           }`}
                         >
-                          <p className="text-lg">
+                          <p className={`text-lg ${isPastDate ? 'line-through' : ''}`}>
                             {date.getDate()}
                           </p>
+                          {isToday && <p className="text-xs text-primary-dark">Hoy</p>}
                         </button>
                       );
                     })}
