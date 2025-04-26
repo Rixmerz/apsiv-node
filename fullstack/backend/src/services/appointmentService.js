@@ -191,12 +191,12 @@ const createAppointment = async (appointmentData) => {
       const hour = appointmentDate.getHours();
       const slotIndex = hour - 7; // 8:00 -> 1, 9:00 -> 2, etc.
 
-      // Validate that slotIndex is in a valid range (1-18)
-      if (slotIndex < 1 || slotIndex > 18) {
-        console.error(`[Backend] Error: Invalid appointment time (${hour}:00). Must be between 8:00 and 25:00.`);
+      // Validate that slotIndex is in a valid range (1-13)
+      if (slotIndex < 1 || slotIndex > 13) {
+        console.error(`[Backend] Error: Invalid appointment time (${hour}:00). Must be between 8:00 and 20:00.`);
         return {
           success: false,
-          error: `Invalid appointment time (${hour}:00). Must be between 8:00 and 25:00.`
+          error: `Invalid appointment time (${hour}:00). Must be between 8:00 and 20:00.`
         };
       }
 
@@ -371,11 +371,30 @@ const createAppointment = async (appointmentData) => {
 
     const appointmentHour = slotNumber + 7; // block_1 -> 8:00, block_2 -> 9:00, etc.
 
-    // Crear una nueva fecha con la hora correcta
-    const finalDate = new Date(dateStr);
-    finalDate.setHours(appointmentHour, 0, 0, 0);
+    // Create a new date with the correct hour
+    // Use UTC to avoid timezone issues
+    const finalDate = new Date(`${dateStr}T00:00:00Z`);
 
-    console.log(`[Backend] Fecha final de la cita: ${finalDate.toISOString()}`);
+    // Handle hours that go into the next day
+    let dayOffset = 0;
+    let adjustedHour = appointmentHour;
+
+    if (appointmentHour >= 24) {
+      dayOffset = 1;
+      adjustedHour = appointmentHour - 24;
+      console.log(`[Backend] Hour ${appointmentHour} is in the next day, adjusted to ${adjustedHour} with day offset ${dayOffset}`);
+    }
+
+    // Set the hour
+    finalDate.setUTCHours(adjustedHour, 0, 0, 0);
+
+    // Add day offset if needed
+    if (dayOffset > 0) {
+      finalDate.setUTCDate(finalDate.getUTCDate() + dayOffset);
+    }
+
+    console.log(`[Backend] Final appointment date: ${finalDate.toISOString()}`);
+    console.log(`[Backend] Local date representation: ${finalDate.toString()}`);
 
     // Crear la cita
     const appointment = await prisma.appointment.create({
@@ -601,9 +620,10 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
     // We'll use only the new format (block_X) for default slots
     // and handle legacy format (Bloque_X) when processing doctor schedules
 
-    // Include all possible slots (1-18)
+    // Include slots from 8:00 to 20:00 (1-13)
+    // This is a more reasonable range for medical appointments
     const defaultSlots = [];
-    for (let i = 1; i <= 18; i++) {
+    for (let i = 1; i <= 13; i++) {
       defaultSlots.push(`block_${i}`);
     }
 
@@ -727,13 +747,48 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
 
     // Apply existing appointments
     existingAppointments.forEach(appointment => {
-      const hour = appointment.date.getHours();
-      const slotIndex = hour - 7; // 8:00 -> 1, 9:00 -> 2, etc.
+      // Get the appointment date in UTC
+      const appointmentDate = new Date(appointment.date);
+
+      // Check if the appointment is for the requested date
+      const appointmentDateStr = appointmentDate.toISOString().split('T')[0];
+      const requestedDateStr = new Date(dateStr).toISOString().split('T')[0];
+
+      console.log(`[Backend] Comparing appointment date ${appointmentDateStr} with requested date ${requestedDateStr}`);
+
+      // Calculate the slot index based on the hour
+      const hour = appointmentDate.getUTCHours();
+      let slotIndex = hour - 7; // 8:00 -> 1, 9:00 -> 2, etc.
+
+      // Handle appointments that are in the next day (early morning hours)
+      if (appointmentDateStr !== requestedDateStr) {
+        console.log(`[Backend] Appointment date ${appointmentDateStr} is different from requested date ${requestedDateStr}`);
+
+        // If the appointment is for the next day and the hour is early morning (0-7),
+        // it corresponds to slots 17-24 of the previous day
+        if (hour >= 0 && hour < 7) {
+          const dayDiff = (new Date(appointmentDateStr) - new Date(requestedDateStr)) / (1000 * 60 * 60 * 24);
+
+          if (dayDiff === 1) {
+            // This is an appointment for the next day's early morning
+            slotIndex = hour + 17; // 0:00 -> 17, 1:00 -> 18, etc.
+            console.log(`[Backend] Early morning appointment for next day, adjusted slot index: ${slotIndex}`);
+          } else {
+            // This appointment is for a different day, skip it
+            console.log(`[Backend] Appointment is for a different day, skipping`);
+            return;
+          }
+        } else {
+          // This appointment is for a different day, skip it
+          console.log(`[Backend] Appointment is for a different day, skipping`);
+          return;
+        }
+      }
 
       // Always use the new format for consistency
       const slotId = `block_${slotIndex}`;
 
-      console.log(`[Backend] Processing existing appointment at ${appointment.date.toISOString()}, hour: ${hour}, slotIndex: ${slotIndex}, slotId: ${slotId}`);
+      console.log(`[Backend] Processing existing appointment at ${appointmentDate.toISOString()}, hour: ${hour}, slotIndex: ${slotIndex}, slotId: ${slotId}`);
 
       if (slotsInfo[slotId]) {
         // Mark as reserved
@@ -747,7 +802,7 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
 
         console.log(`[Backend] Slot ${slotId} marked as reserved for patient ${appointment.patientId}`);
       } else {
-        console.log(`[Backend] Warning: Slot ${slotId} not found in slotsInfo for existing appointment at ${appointment.date.toISOString()}`);
+        console.log(`[Backend] Warning: Slot ${slotId} not found in slotsInfo for existing appointment at ${appointmentDate.toISOString()}`);
 
         // Try to find the slot with a different format
         const alternativeFormats = [
@@ -944,12 +999,17 @@ const getHourFromSlotId = (slotId) => {
   const startHour = slotNumber + 7; // slot 1 -> 8:00, slot 2 -> 9:00, etc.
   const endHour = startHour + 1;
 
-  // Format hours correctly, even for hours greater than 23
+  // Format hours correctly, handling hours greater than 23
   let formattedStartHour = startHour;
   let formattedEndHour = endHour;
 
-  // If the hour is greater than 23, show it as is to maintain consistency
-  // with the rest of the code, even though it's technically not a valid 24h format
+  // For display purposes, convert hours > 23 to a more readable format
+  if (startHour > 23) {
+    formattedStartHour = startHour - 24;
+    formattedEndHour = endHour - 24;
+    console.log(`[Backend] Slot ${slotId} -> Hour ${formattedStartHour}:00 - ${formattedEndHour}:00 (next day)`);
+    return `${formattedStartHour}:00 - ${formattedEndHour}:00 (next day)`;
+  }
 
   console.log(`[Backend] Slot ${slotId} -> Hour ${formattedStartHour}:00 - ${formattedEndHour}:00`);
   return `${formattedStartHour}:00 - ${formattedEndHour}:00`;
