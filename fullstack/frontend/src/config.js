@@ -1,5 +1,5 @@
 // URL base de la API
-export const API_URL = 'http://localhost:3006/api';
+export const API_URL = 'http://localhost:3007/api';
 
 // Configuración de la aplicación
 export const APP_CONFIG = {
