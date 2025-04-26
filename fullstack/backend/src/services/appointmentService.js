@@ -622,9 +622,16 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
 
     // Include slots from 8:00 to 20:00 (1-13)
     // This is a more reasonable range for medical appointments
+    // Only include slots that are within the same day (hours 0-23)
     const defaultSlots = [];
     for (let i = 1; i <= 13; i++) {
-      defaultSlots.push(`block_${i}`);
+      // Calculate the hour for this slot
+      const hour = i + 7; // slot 1 -> 8:00, slot 2 -> 9:00, etc.
+
+      // Only include slots for the current day (hours 0-23)
+      if (hour <= 23) {
+        defaultSlots.push(`block_${i}`);
+      }
     }
 
     console.log(`[Backend] Default slots (${defaultSlots.length}):`, defaultSlots.join(', '));
@@ -880,6 +887,15 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
         return; // Skip this slot
       }
 
+      // Calculate the hour for this slot
+      const hour = slotNumber + 7; // slot 1 -> 8:00, slot 2 -> 9:00, etc.
+
+      // Skip slots that are for the next day (hour > 23)
+      if (hour > 23) {
+        console.log(`[Backend] Skipping slot ${slotId} with hour ${hour}:00 as it's for the next day`);
+        return; // Skip this slot
+      }
+
       // If we already have this slot number, merge the information
       if (slotsByNumber[slotNumber]) {
         // Prefer slots that are configured by the doctor
@@ -907,27 +923,32 @@ const getAvailableSlotsForDate = async (doctorId, dateStr) => {
 
       console.log(`[Backend] Processing slot ${slotNumber}: status=${info.status}, available=${info.available}, configuredByDoctor=${info.configuredByDoctor}`);
 
-      // For availability view (compatible with previous format)
-      availableSlots[frontendSlotId] = info.available;
+      // Only include slots that are configured by the doctor
+      if (info.configuredByDoctor) {
+        // For availability view (compatible with previous format)
+        availableSlots[frontendSlotId] = info.available;
 
-      // For reservations view
-      if (info.status === 'reserved') {
-        reservedSlots[frontendSlotId] = info.reservedByPatient;
+        // For reservations view
+        if (info.status === 'reserved') {
+          reservedSlots[frontendSlotId] = info.reservedByPatient;
+        }
+
+        // For complete view
+        allSlots[frontendSlotId] = {
+          id: frontendSlotId,
+          hour: info.hour,
+          status: info.status,
+          configuredByDoctor: info.configuredByDoctor
+        };
+
+        // Save detailed information with frontend ID
+        frontendSlotsInfo[frontendSlotId] = {
+          ...info,
+          id: frontendSlotId
+        };
+      } else {
+        console.log(`[Backend] Skipping slot ${frontendSlotId} as it's not configured by the doctor`);
       }
-
-      // For complete view
-      allSlots[frontendSlotId] = {
-        id: frontendSlotId,
-        hour: info.hour,
-        status: info.status,
-        configuredByDoctor: info.configuredByDoctor
-      };
-
-      // Save detailed information with frontend ID
-      frontendSlotsInfo[frontendSlotId] = {
-        ...info,
-        id: frontendSlotId
-      };
     });
 
     // Contar cuántos slots están disponibles después de la conversión
@@ -1007,7 +1028,7 @@ const getHourFromSlotId = (slotId) => {
   if (startHour > 23) {
     formattedStartHour = startHour - 24;
     formattedEndHour = endHour - 24;
-    console.log(`[Backend] Slot ${slotId} -> Hour ${formattedStartHour}:00 - ${formattedEndHour}:00 (next day)`);
+    console.log(`[Backend] Slot ${slotId} -> Hour ${formattedStartHour}:00 - ${formattedEndHour}:00 (next day) - NOT INCLUDED`);
     return `${formattedStartHour}:00 - ${formattedEndHour}:00 (next day)`;
   }
 
